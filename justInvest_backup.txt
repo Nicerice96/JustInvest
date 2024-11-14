@@ -1,0 +1,53 @@
+JustInvest Database Backup
+========================
+
+Username: Zarif
+Role: StandardClient
+Permissions: 
+  - CLIENT_VIEW_BALANCE
+  - VIEW_CLIENT_PORTFOLIO
+  - VIEW_CONTACT_DETAILS_FA
+Balance: $1000.00
+Portfolio Items: 0
+
+--------------------------------------------------
+
+Username: advisor1
+Role: FinancialAdvisor
+Permissions: 
+  - CLIENT_VIEW_BALANCE
+  - VIEW_CLIENT_PORTFOLIO
+  - MODIFY_CLIENT_PORTFOLIO
+  - VIEW_CONTACT_DETAILS_FA
+  - VIEW_PRIVATE_CONSUMER_INSTRUMENTS
+Balance: $0.00
+Portfolio Items: 0
+
+--------------------------------------------------
+
+Username: planner1
+Role: FinancialPlanner
+Permissions: 
+  - CLIENT_VIEW_BALANCE
+  - VIEW_CLIENT_PORTFOLIO
+  - MODIFY_CLIENT_PORTFOLIO
+  - VIEW_CONTACT_DETAILS_FP
+  - VIEW_MONEY_MARKET_INSTRUMENTS
+  - VIEW_PRIVATE_CONSUMER_INSTRUMENTS
+Balance: $0.00
+Portfolio Items: 0
+
+--------------------------------------------------
+
+Username: premium1
+Role: PremiumClient
+Permissions: 
+  - CLIENT_VIEW_BALANCE
+  - VIEW_CLIENT_PORTFOLIO
+  - MODIFY_CLIENT_PORTFOLIO
+  - VIEW_CONTACT_DETAILS_FP
+Balance: $5000.00
+Portfolio Items: 0
+
+--------------------------------------------------
+

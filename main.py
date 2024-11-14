@@ -248,7 +248,7 @@ def just_invest_ui(user: User):
         print("-----------------------------")
         print(f"Operations Available to {user.get_username()}:")
 
-        # Display options based on permissions
+        
         if user.has_permission(Permissions.CLIENT_VIEW_BALANCE):
             print("1. View account balance")
         if user.has_permission(Permissions.VIEW_CLIENT_PORTFOLIO):
@@ -323,6 +323,54 @@ def authenticate(db: sqlite3.Connection, username: str, password: str) -> bool:
         print(f"Error during authentication: {e}")
         return False
 
+def export_db_to_txt(db: sqlite3.Connection, filename: str = "justInvest_backup.txt") -> bool:
+    """
+    Export database contents to a text file.
+    Note: This exports user info without sensitive data (no passwords/hashes)
+    
+    Args:
+        db: SQLite database connection
+        filename: Name of the output text file
+        
+    Returns:
+        bool: True if export successful, False otherwise
+    """
+    try:
+        cursor = db.cursor()
+        cursor.execute("SELECT username, serialized_user FROM Users")
+        results = cursor.fetchall()
+        
+        with open(filename, 'w') as f:
+            f.write("JustInvest Database Backup\n")
+            f.write("========================\n\n")
+            
+            for username, serialized_user in results:
+                user = deserialize_user(serialized_user)
+                f.write(f"Username: {username}\n")
+                f.write(f"Role: {user.role.role_type}\n")
+                f.write(f"Permissions: \n")
+                for permission in user.role.permissions:
+                    f.write(f"  - {permission.name}\n")
+                if hasattr(user, 'balance'):
+                    f.write(f"Balance: ${user.balance:.2f}\n")
+                if hasattr(user, 'portfolio'):
+                    f.write(f"Portfolio Items: {len(user.portfolio)}\n")
+                f.write("\n" + "-"*50 + "\n\n")
+                
+        print(f"Database successfully exported to {filename}")
+        return True
+        
+    except sqlite3.Error as e:
+        print(f"Database error during export: {e}")
+        return False
+    except IOError as e:
+        print(f"File error during export: {e}")
+        return False
+    except Exception as e:
+        print(f"Error during export: {e}")
+        return False
+
+# Add this to your main() function:
 def main():
     db = create_database()
     if not db:
@@ -332,12 +380,19 @@ def main():
         db.close()
         return
 
-    # Example user creation
     username_create = "Zarif"
     password_create = "7GUBFKBu!"
 
     if insert_user(db, username_create, password_create, StandardClient, balance=1000.0):
         print("User successfully created!")
+        
+    # Add more test users if you want
+    insert_user(db, "advisor1", "Adv1sor@123", FinancialAdvisor)
+    insert_user(db, "planner1", "Plan1er@123", FinancialPlanner)
+    insert_user(db, "premium1", "Prem1um@123", PremiumClient, balance=5000.0)
+    
+    # Export database to text file
+    export_db_to_txt(db)
 
     print("\nHello! Welcome to justInvest.")
     username = input("Enter Username:\n").strip()
