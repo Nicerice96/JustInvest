@@ -1,9 +1,11 @@
 import sqlite3
 import pickle
 from enum import Enum
-from typing import List, Optional
-import re
+from typing import List, Optional, Tuple
 from datetime import datetime
+import hashlib
+import secrets
+import re
 
 class Permissions(Enum):
     CLIENT_VIEW_BALANCE = 1
@@ -20,14 +22,33 @@ class Role:
         self.role_type = role_type
         self.permissions = permissions
 
+class PasswordManager:
+    PEPPER = b"your_secure_pepper_value_here"
+    
+    @staticmethod
+    def hash_password(password: str) -> Tuple[bytes, bytes]:
+        """Hash a password with salt and pepper.
+        Returns: (salt, hashed_password)"""
+        salt = secrets.token_bytes(32)
+        salted_peppered = password.encode() + salt + PasswordManager.PEPPER
+        hashed = hashlib.sha256(salted_peppered).digest()
+        return salt, hashed
+    
+    @staticmethod
+    def verify_password(password: str, stored_salt: bytes, stored_hash: bytes) -> bool:
+        """Verify a password against stored salt and hash"""
+        salted_peppered = password.encode() + stored_salt + PasswordManager.PEPPER
+        hashed = hashlib.sha256(salted_peppered).digest()
+        return secrets.compare_digest(hashed, stored_hash)
+
 class User:
-    def __init__(self, username: str, hashed_password: str, role: Role):
+    def __init__(self, username: str, hashed_password: bytes, salt: bytes, role: Role):
         self.username = username
         self.hashed_password = hashed_password
+        self.salt = salt
         self.role = role
-        self.balance = 0.0  
-        self.portfolio = []  # Initialize portfolio
-        
+        self.balance = 0.0
+        self.portfolio = []
 
     def has_permission(self, permission: Permissions) -> bool:
         return permission in self.role.permissions
@@ -35,58 +56,58 @@ class User:
     def get_username(self) -> str:
         return self.username
 
-    def get_hashed_password(self) -> str:
+    def get_hashed_password(self) -> bytes:
         return self.hashed_password
-    
-    def view_balance(self):
-        if self.has_permission(Permissions.CLIENT_VIEW_BALANCE):
-            print(f"Current balance: ${self.balance:.2f}")
-        else:
-            print("You do not have permission to view the balance.")
-
-    def view_portfolio(self):
-        if self.has_permission(Permissions.VIEW_CLIENT_PORTFOLIO):
-            if not self.portfolio:
-                print("Your investment portfolio is empty.")
-            else:
-                print("Investment Portfolio:")
-                for item in self.portfolio:
-                    print(f"- {item}")
-        else:
-            print("You do not have permission to view the portfolio.")
-
+        
+    def get_salt(self) -> bytes:
+        return self.salt
 
 class StandardClient(User):
-    def __init__(self, username: str, password: str, balance: float = 0.0):
-        super().__init__(username, password, Role(
-            "StandardClient",
-            [
-                Permissions.CLIENT_VIEW_BALANCE,
-                Permissions.VIEW_CLIENT_PORTFOLIO,
-                Permissions.VIEW_CONTACT_DETAILS_FA
-            ]
-        ))
+    def __init__(self, username: str, hashed_password: bytes, salt: bytes, balance: float = 0.0):
+        super().__init__(
+            username,
+            hashed_password,
+            salt,
+            Role(
+                "StandardClient",
+                [
+                    Permissions.CLIENT_VIEW_BALANCE,
+                    Permissions.VIEW_CLIENT_PORTFOLIO,
+                    Permissions.VIEW_CONTACT_DETAILS_FA
+                ]
+            )
+        )
         self.balance = balance
-        
+
 class PremiumClient(User):
-    def __init__(self, username: str, password: str, balance: float = 0.0):
-        super().__init__(username, password, Role(
-            "PremiumClient",
-            [
-                Permissions.CLIENT_VIEW_BALANCE,
-                Permissions.VIEW_CLIENT_PORTFOLIO,
-                Permissions.MODIFY_CLIENT_PORTFOLIO,
-                Permissions.VIEW_CONTACT_DETAILS_FP
-            ]
-        ))
+    def __init__(self, username: str, hashed_password: bytes, salt: bytes, balance: float = 0.0):
+        super().__init__(
+            username,
+            hashed_password,
+            salt,
+            Role(
+                "PremiumClient",
+                [
+                    Permissions.CLIENT_VIEW_BALANCE,
+                    Permissions.VIEW_CLIENT_PORTFOLIO,
+                    Permissions.MODIFY_CLIENT_PORTFOLIO,
+                    Permissions.VIEW_CONTACT_DETAILS_FP
+                ]
+            )
+        )
         self.balance = balance
 
 class Teller(User):
-    def __init__(self, username: str, password: str):
-        super().__init__(username, password, Role(
-            "Teller",
-            [Permissions.TELLER_ACCESS]
-        ))
+    def __init__(self, username: str, hashed_password: bytes, salt: bytes):
+        super().__init__(
+            username,
+            hashed_password,
+            salt,
+            Role(
+                "Teller",
+                [Permissions.TELLER_ACCESS]
+            )
+        )
 
     def is_within_business_hours(self) -> bool:
         current_time = datetime.now().time()
@@ -102,33 +123,41 @@ class Teller(User):
         return super().has_permission(permission)
 
 class FinancialAdvisor(User):
-    def __init__(self, username: str, password: str):
-        super().__init__(username, password, Role(
-            "FinancialAdvisor",
-            [
-                Permissions.CLIENT_VIEW_BALANCE,
-                Permissions.VIEW_CLIENT_PORTFOLIO,
-                Permissions.MODIFY_CLIENT_PORTFOLIO,
-                Permissions.VIEW_CONTACT_DETAILS_FA,
-                Permissions.VIEW_PRIVATE_CONSUMER_INSTRUMENTS
-            ]
-        ))
+    def __init__(self, username: str, hashed_password: bytes, salt: bytes):
+        super().__init__(
+            username,
+            hashed_password,
+            salt,
+            Role(
+                "FinancialAdvisor",
+                [
+                    Permissions.CLIENT_VIEW_BALANCE,
+                    Permissions.VIEW_CLIENT_PORTFOLIO,
+                    Permissions.MODIFY_CLIENT_PORTFOLIO,
+                    Permissions.VIEW_CONTACT_DETAILS_FA,
+                    Permissions.VIEW_PRIVATE_CONSUMER_INSTRUMENTS
+                ]
+            )
+        )
 
 class FinancialPlanner(User):
-    def __init__(self, username: str, password: str):
-        super().__init__(username, password, Role(
-            "FinancialPlanner",
-            [
-                Permissions.CLIENT_VIEW_BALANCE,
-                Permissions.VIEW_CLIENT_PORTFOLIO,
-                Permissions.MODIFY_CLIENT_PORTFOLIO,
-                Permissions.VIEW_CONTACT_DETAILS_FP,
-                Permissions.VIEW_MONEY_MARKET_INSTRUMENTS,
-                Permissions.VIEW_PRIVATE_CONSUMER_INSTRUMENTS
-            ]
-        ))
-
-    
+    def __init__(self, username: str, hashed_password: bytes, salt: bytes):
+        super().__init__(
+            username,
+            hashed_password,
+            salt,
+            Role(
+                "FinancialPlanner",
+                [
+                    Permissions.CLIENT_VIEW_BALANCE,
+                    Permissions.VIEW_CLIENT_PORTFOLIO,
+                    Permissions.MODIFY_CLIENT_PORTFOLIO,
+                    Permissions.VIEW_CONTACT_DETAILS_FP,
+                    Permissions.VIEW_MONEY_MARKET_INSTRUMENTS,
+                    Permissions.VIEW_PRIVATE_CONSUMER_INSTRUMENTS
+                ]
+            )
+        )
 
 def serialize_user(user: User) -> bytes:
     return pickle.dumps(user)
@@ -137,6 +166,7 @@ def deserialize_user(serialized_user: bytes) -> User:
     return pickle.loads(serialized_user)
 
 def password_LUDS(password: str, username: str) -> bool:
+    """Validate password meets Length, Uppercase, Digit, Symbol requirements"""
     if not (8 <= len(password) <= 12):
         print("Password must be between 8 and 12 characters (inclusive).")
         return False
@@ -174,7 +204,8 @@ def create_table(db: sqlite3.Connection) -> bool:
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS Users (
                 username TEXT PRIMARY KEY,
-                hashed_password TEXT NOT NULL,
+                salt BLOB NOT NULL,
+                hashed_password BLOB NOT NULL,
                 serialized_user BLOB NOT NULL
             )
         """)
@@ -184,14 +215,24 @@ def create_table(db: sqlite3.Connection) -> bool:
         print(f"Error in creating table: {e}")
         return False
 
-def insert_user(db: sqlite3.Connection, user: User) -> bool:
-    if password_LUDS(user.get_hashed_password(), user.get_username()):
+def insert_user(db: sqlite3.Connection, username: str, password: str, user_class, balance: float = 0.0) -> bool:
+    if password_LUDS(password, username):
         try:
+            # Hash password with salt and pepper
+            salt, hashed_password = PasswordManager.hash_password(password)
+            
+            # Create user instance with hashed credentials
+            if user_class in (StandardClient, PremiumClient):
+                user = user_class(username, hashed_password, salt, balance)
+            else:
+                user = user_class(username, hashed_password, salt)
+            
             cursor = db.cursor()
             serialized_user = serialize_user(user)
+            
             cursor.execute(
-                "INSERT INTO Users (username, hashed_password, serialized_user) VALUES (?, ?, ?)",
-                (user.get_username(), user.get_hashed_password(), serialized_user)
+                "INSERT INTO Users (username, salt, hashed_password, serialized_user) VALUES (?, ?, ?, ?)",
+                (username, salt, hashed_password, serialized_user)
             )
             db.commit()
             return True
@@ -203,7 +244,7 @@ def insert_user(db: sqlite3.Connection, user: User) -> bool:
 def just_invest_ui(user: User):
     running = True
     while running:
-        print("justInvest System:")
+        print("\njustInvest System:")
         print("-----------------------------")
         print(f"Operations Available to {user.get_username()}:")
 
@@ -227,7 +268,7 @@ def just_invest_ui(user: User):
         print("0. Exit")
 
         try:
-            choice = int(input("Please enter your choice: "))
+            choice = int(input("\nPlease enter your choice: "))
             print()
 
             if choice == 0:
@@ -236,47 +277,47 @@ def just_invest_ui(user: User):
 
             # Define actions with deferred execution
             actions = {
-                1: (Permissions.CLIENT_VIEW_BALANCE, lambda: print("\nviewing balance\n")),
-                2: (Permissions.VIEW_CLIENT_PORTFOLIO, lambda: print("\nviewing portfolio\n")),
+                1: (Permissions.CLIENT_VIEW_BALANCE, lambda: print(f"\nCurrent balance: ${user.balance:.2f}\n")),
+                2: (Permissions.VIEW_CLIENT_PORTFOLIO, lambda: print("\nViewing portfolio...\n")),
                 3: (Permissions.MODIFY_CLIENT_PORTFOLIO, lambda: print("\nModifying investment portfolio...\n")),
                 4: (Permissions.VIEW_CONTACT_DETAILS_FA, lambda: print("\nViewing Financial Advisor contact details...\n")),
                 5: (Permissions.VIEW_CONTACT_DETAILS_FP, lambda: print("\nViewing Financial Planner contact details...\n")),
                 6: (Permissions.VIEW_MONEY_MARKET_INSTRUMENTS, lambda: print("\nViewing money market instruments...\n")),
                 7: (Permissions.VIEW_PRIVATE_CONSUMER_INSTRUMENTS, lambda: print("\nViewing private consumer instruments...\n")),
-                8: (Permissions.TELLER_ACCESS, lambda: print("Accessing Teller-specific options..."))
+                8: (Permissions.TELLER_ACCESS, lambda: print("\nAccessing Teller-specific options...\n"))
             }
 
-            
             if choice in actions:
                 permission, action = actions[choice]
                 if user.has_permission(permission):
-                    action()  
+                    action()
                 else:
-                    print("You do not have permission for this action.")
+                    print("\nYou do not have permission for this action.")
             else:
-                print("Invalid choice. Please try again.")
+                print("\nInvalid choice. Please try again.")
 
         except ValueError:
-            print("Invalid input. Please enter a number.")
-        
-        print()
+            print("\nInvalid input. Please enter a number.")
 
-    print("Exiting the justInvest System. Goodbye!")
-
+    print("\nExiting the justInvest System. Goodbye!")
 
 def authenticate(db: sqlite3.Connection, username: str, password: str) -> bool:
     try:
         cursor = db.cursor()
         cursor.execute(
-            "SELECT hashed_password, serialized_user FROM Users WHERE username = ?",
+            "SELECT salt, hashed_password, serialized_user FROM Users WHERE username = ?",
             (username,)
         )
         result = cursor.fetchone()
         
-        if result and result[0] == password:
-            user = deserialize_user(result[1])
-            just_invest_ui(user)
-            return True
+        if result:
+            stored_salt = result[0]
+            stored_hash = result[1]
+            
+            if PasswordManager.verify_password(password, stored_salt, stored_hash):
+                user = deserialize_user(result[2])
+                just_invest_ui(user)
+                return True
         return False
     except sqlite3.Error as e:
         print(f"Error during authentication: {e}")
@@ -291,21 +332,16 @@ def main():
         db.close()
         return
 
+    # Example user creation
     username_create = "Zarif"
     password_create = "7GUBFKBu!"
 
-    std_client = StandardClient(username_create, password_create)
-    
-    print(f"BALANCE: ${std_client.balance}")
-    if insert_user(db, std_client):
+    if insert_user(db, username_create, password_create, StandardClient, balance=1000.0):
         print("User successfully created!")
 
-    print("Hello! Welcome to justInvest.")
-    username = input("Enter Username:\n")
-    password = input("Enter Password:\n")
-    
-    username = username.strip(" ")
-    password = password.strip(" ")
+    print("\nHello! Welcome to justInvest.")
+    username = input("Enter Username:\n").strip()
+    password = input("Enter Password:\n").strip()
 
     if authenticate(db, username, password):
         print("Login Successful!")
