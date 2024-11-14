@@ -1,0 +1,16 @@
+{
+    "Zarif": {
+        "username": "Zarif",
+        "hashed_password": "4e53861b1ab03daf38312b281d05dc88e2531442a24d4ee0c8f4fd3e892e0d3f",
+        "salt": "cc7debfc9db4e0c5fd1be042e001f122e2b064ecfda2bc41000d02e2e5d3144c",
+        "role": "StandardClient",
+        "permissions": [
+            "CLIENT_VIEW_BALANCE",
+            "VIEW_CLIENT_PORTFOLIO",
+            "VIEW_CONTACT_DETAILS_FA"
+        ],
+        "balance": 0.0,
+        "portfolio": [],
+        "type": "StandardClient"
+    }
+}
