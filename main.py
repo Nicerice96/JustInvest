@@ -1,21 +1,15 @@
-import sqlite3
-import pickle
+import secrets
+import hashlib
 from enum import Enum
 from typing import List, Optional, Tuple
 from datetime import datetime
-import hashlib
-import secrets
-import re
 
 class Permissions(Enum):
-    CLIENT_VIEW_BALANCE = 1
-    VIEW_CLIENT_PORTFOLIO = 2
-    VIEW_CONTACT_DETAILS_FA = 3
-    MODIFY_CLIENT_PORTFOLIO = 4
-    VIEW_CONTACT_DETAILS_FP = 5
-    VIEW_MONEY_MARKET_INSTRUMENTS = 6
-    VIEW_PRIVATE_CONSUMER_INSTRUMENTS = 7
-    TELLER_ACCESS = 8
+    VIEW_BALANCE = 1
+    DEPOSIT = 2
+    WITHDRAW = 3
+    MODIFY_ACCOUNT = 4
+    CLOSE_ACCOUNT = 5
 
 class Role:
     def __init__(self, role_type: str, permissions: List[Permissions]):
@@ -48,7 +42,7 @@ class User:
         self.salt = salt
         self.role = role
         self.balance = 0.0
-        self.portfolio = []
+        self.account_number = self.generate_account_number()
 
     def has_permission(self, permission: Permissions) -> bool:
         return permission in self.role.permissions
@@ -62,108 +56,135 @@ class User:
     def get_salt(self) -> bytes:
         return self.salt
 
-class StandardClient(User):
+    def generate_account_number(self) -> str:
+        return str(secrets.randbelow(99999 - 10000 + 1) + 10000)
+
+    def deposit(self, amount: float):
+        if amount > 0:
+            self.balance += amount
+            print(f"Deposited ${amount:.2f}. New balance: ${self.balance:.2f}")
+        else:
+            print("Amount must be greater than zero.")
+
+    def withdraw(self, amount: float):
+        if 0 < amount <= self.balance:
+            self.balance -= amount
+            print(f"Withdrew ${amount:.2f}. New balance: ${self.balance:.2f}")
+        elif amount > self.balance:
+            print("Insufficient funds.")
+        else:
+            print("Amount must be greater than zero.")
+
+    def check_balance(self):
+        print(f"Current balance: ${self.balance:.2f}")
+
+class StandardUser(User):
     def __init__(self, username: str, hashed_password: bytes, salt: bytes, balance: float = 0.0):
         super().__init__(
             username,
             hashed_password,
             salt,
             Role(
-                "StandardClient",
+                "StandardUser",
                 [
-                    Permissions.CLIENT_VIEW_BALANCE,
-                    Permissions.VIEW_CLIENT_PORTFOLIO,
-                    Permissions.VIEW_CONTACT_DETAILS_FA
+                    Permissions.VIEW_BALANCE,
+                    Permissions.DEPOSIT,
+                    Permissions.WITHDRAW,
+                    Permissions.MODIFY_ACCOUNT
                 ]
             )
         )
         self.balance = balance
 
-class PremiumClient(User):
-    def __init__(self, username: str, hashed_password: bytes, salt: bytes, balance: float = 0.0):
-        super().__init__(
-            username,
-            hashed_password,
-            salt,
-            Role(
-                "PremiumClient",
-                [
-                    Permissions.CLIENT_VIEW_BALANCE,
-                    Permissions.VIEW_CLIENT_PORTFOLIO,
-                    Permissions.MODIFY_CLIENT_PORTFOLIO,
-                    Permissions.VIEW_CONTACT_DETAILS_FP
-                ]
-            )
-        )
-        self.balance = balance
-
-class Teller(User):
+class AdminUser(User):
     def __init__(self, username: str, hashed_password: bytes, salt: bytes):
         super().__init__(
             username,
             hashed_password,
             salt,
             Role(
-                "Teller",
-                [Permissions.TELLER_ACCESS]
-            )
-        )
-
-    def is_within_business_hours(self) -> bool:
-        current_time = datetime.now().time()
-        start_time = datetime.strptime("09:00", "%H:%M").time()
-        end_time = datetime.strptime("17:00", "%H:%M").time()
-        return start_time <= current_time <= end_time
-
-    def has_permission(self, permission: Permissions) -> bool:
-        if permission == Permissions.TELLER_ACCESS:
-            if not self.is_within_business_hours():
-                print("Access denied. Teller access is only allowed during business hours (9:00am to 5:00pm).")
-                return False
-        return super().has_permission(permission)
-
-class FinancialAdvisor(User):
-    def __init__(self, username: str, hashed_password: bytes, salt: bytes):
-        super().__init__(
-            username,
-            hashed_password,
-            salt,
-            Role(
-                "FinancialAdvisor",
+                "AdminUser",
                 [
-                    Permissions.CLIENT_VIEW_BALANCE,
-                    Permissions.VIEW_CLIENT_PORTFOLIO,
-                    Permissions.MODIFY_CLIENT_PORTFOLIO,
-                    Permissions.VIEW_CONTACT_DETAILS_FA,
-                    Permissions.VIEW_PRIVATE_CONSUMER_INSTRUMENTS
+                    Permissions.VIEW_BALANCE,
+                    Permissions.DEPOSIT,
+                    Permissions.WITHDRAW,
+                    Permissions.MODIFY_ACCOUNT,
+                    Permissions.CLOSE_ACCOUNT
                 ]
             )
         )
 
-class FinancialPlanner(User):
-    def __init__(self, username: str, hashed_password: bytes, salt: bytes):
-        super().__init__(
-            username,
-            hashed_password,
-            salt,
-            Role(
-                "FinancialPlanner",
-                [
-                    Permissions.CLIENT_VIEW_BALANCE,
-                    Permissions.VIEW_CLIENT_PORTFOLIO,
-                    Permissions.MODIFY_CLIENT_PORTFOLIO,
-                    Permissions.VIEW_CONTACT_DETAILS_FP,
-                    Permissions.VIEW_MONEY_MARKET_INSTRUMENTS,
-                    Permissions.VIEW_PRIVATE_CONSUMER_INSTRUMENTS
-                ]
-            )
-        )
+def write_user_to_file(filename: str, user: User):
+    with open(filename, 'a') as f:
+        f.write(f"Username: {user.get_username()}\n")
+        f.write(f"Salt: {user.get_salt().hex()}\n")
+        f.write(f"Hashed Password: {user.get_hashed_password().hex()}\n")
+        f.write(f"Role: {user.role.role_type}\n")
+        f.write(f"Account Number: {user.account_number}\n")
+        f.write(f"Balance: ${user.balance:.2f}\n\n")
 
-def serialize_user(user: User) -> bytes:
-    return pickle.dumps(user)
+def read_users_from_file(filename: str) -> dict:
+    users = {}
+    with open(filename, 'r') as f:
+        lines = f.readlines()
+        user_data = []
+        for line in lines:
+            user_data.append(line.strip())
+            if line.strip() == "":
+                username = None
+                salt = None
+                hashed_password = None
+                role_type = None
+                account_number = None
+                balance = 0.0
+                for data in user_data:
+                    if data.startswith("Username:"):
+                        username = data.split(":")[1].strip()
+                    elif data.startswith("Salt:"):
+                        salt = bytes.fromhex(data.split(":")[1].strip())
+                    elif data.startswith("Hashed Password:"):
+                        hashed_password = bytes.fromhex(data.split(":")[1].strip())
+                    elif data.startswith("Role:"):
+                        role_type = data.split(":")[1].strip()
+                    elif data.startswith("Account Number:"):
+                        account_number = data.split(":")[1].strip()
+                    elif data.startswith("Balance:"):
+                        balance = float(data.split(":")[1].strip().replace("$", ""))
+                if role_type == "StandardUser":
+                    user = StandardUser(username, hashed_password, salt, balance)
+                elif role_type == "AdminUser":
+                    user = AdminUser(username, hashed_password, salt)
+                user.account_number = account_number
+                users[username] = user
+                user_data = []
+    return users
 
-def deserialize_user(serialized_user: bytes) -> User:
-    return pickle.loads(serialized_user)
+def insert_user_to_file(filename: str, username: str, password: str, user_class, balance: float = 0.0) -> bool:
+    if password_LUDS(password, username):
+        try:
+            # Hash password with salt and pepper
+            salt, hashed_password = PasswordManager.hash_password(password)
+            
+            # Create user instance with hashed credentials
+            if user_class in (StandardUser,):
+                user = user_class(username, hashed_password, salt, balance)
+            else:
+                user = user_class(username, hashed_password, salt)
+            
+            write_user_to_file(filename, user)
+            return True
+        except Exception as e:
+            print(f"Error inserting user: {e}")
+            return False
+    return False
+
+def authenticate_from_file(filename: str, username: str, password: str) -> User:
+    users = read_users_from_file(filename)
+    if username in users:
+        user = users[username]
+        if PasswordManager.verify_password(password, user.get_salt(), user.get_hashed_password()):
+            return user
+    return None
 
 def password_LUDS(password: str, username: str) -> bool:
     """Validate password meets Length, Uppercase, Digit, Symbol requirements"""
@@ -190,81 +211,23 @@ def password_LUDS(password: str, username: str) -> bool:
 
     return all([has_upper, has_lower, has_digit, has_special])
 
-def create_database() -> Optional[sqlite3.Connection]:
-    try:
-        db = sqlite3.connect("justInvest.db")
-        return db
-    except sqlite3.Error as e:
-        print(f"Error opening database: {e}")
-        return None
-
-def create_table(db: sqlite3.Connection) -> bool:
-    try:
-        cursor = db.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS Users (
-                username TEXT PRIMARY KEY,
-                salt BLOB NOT NULL,
-                hashed_password BLOB NOT NULL,
-                serialized_user BLOB NOT NULL
-            )
-        """)
-        db.commit()
-        return True
-    except sqlite3.Error as e:
-        print(f"Error in creating table: {e}")
-        return False
-
-def insert_user(db: sqlite3.Connection, username: str, password: str, user_class, balance: float = 0.0) -> bool:
-    if password_LUDS(password, username):
-        try:
-            # Hash password with salt and pepper
-            salt, hashed_password = PasswordManager.hash_password(password)
-            
-            # Create user instance with hashed credentials
-            if user_class in (StandardClient, PremiumClient):
-                user = user_class(username, hashed_password, salt, balance)
-            else:
-                user = user_class(username, hashed_password, salt)
-            
-            cursor = db.cursor()
-            serialized_user = serialize_user(user)
-            
-            cursor.execute(
-                "INSERT INTO Users (username, salt, hashed_password, serialized_user) VALUES (?, ?, ?, ?)",
-                (username, salt, hashed_password, serialized_user)
-            )
-            db.commit()
-            return True
-        except sqlite3.Error as e:
-            print(f"Error inserting user: {e}")
-            return False
-    return False
-
-def just_invest_ui(user: User):
+def banking_ui(user: User):
     running = True
     while running:
-        print("\njustInvest System:")
-        print("-----------------------------")
+        print("\nBanking System:")
+        print("------------------")
         print(f"Operations Available to {user.get_username()}:")
-
-        # Display options based on permissions
-        if user.has_permission(Permissions.CLIENT_VIEW_BALANCE):
+        
+        if user.has_permission(Permissions.VIEW_BALANCE):
             print("1. View account balance")
-        if user.has_permission(Permissions.VIEW_CLIENT_PORTFOLIO):
-            print("2. View investment portfolio")
-        if user.has_permission(Permissions.MODIFY_CLIENT_PORTFOLIO):
-            print("3. Modify investment portfolio")
-        if user.has_permission(Permissions.VIEW_CONTACT_DETAILS_FA):
-            print("4. View Financial Advisor contact details")
-        if user.has_permission(Permissions.VIEW_CONTACT_DETAILS_FP):
-            print("5. View Financial Planner contact details")
-        if user.has_permission(Permissions.VIEW_MONEY_MARKET_INSTRUMENTS):
-            print("6. View money market instruments")
-        if user.has_permission(Permissions.VIEW_PRIVATE_CONSUMER_INSTRUMENTS):
-            print("7. View private consumer instruments")
-        if user.has_permission(Permissions.TELLER_ACCESS):
-            print("8. Teller-specific options")
+        if user.has_permission(Permissions.DEPOSIT):
+            print("2. Deposit money")
+        if user.has_permission(Permissions.WITHDRAW):
+            print("3. Withdraw money")
+        if user.has_permission(Permissions.MODIFY_ACCOUNT):
+            print("4. Modify account details")
+        if user.has_permission(Permissions.CLOSE_ACCOUNT):
+            print("5. Close account")
         print("0. Exit")
 
         try:
@@ -277,14 +240,11 @@ def just_invest_ui(user: User):
 
             # Define actions with deferred execution
             actions = {
-                1: (Permissions.CLIENT_VIEW_BALANCE, lambda: print(f"\nCurrent balance: ${user.balance:.2f}\n")),
-                2: (Permissions.VIEW_CLIENT_PORTFOLIO, lambda: print("\nViewing portfolio...\n")),
-                3: (Permissions.MODIFY_CLIENT_PORTFOLIO, lambda: print("\nModifying investment portfolio...\n")),
-                4: (Permissions.VIEW_CONTACT_DETAILS_FA, lambda: print("\nViewing Financial Advisor contact details...\n")),
-                5: (Permissions.VIEW_CONTACT_DETAILS_FP, lambda: print("\nViewing Financial Planner contact details...\n")),
-                6: (Permissions.VIEW_MONEY_MARKET_INSTRUMENTS, lambda: print("\nViewing money market instruments...\n")),
-                7: (Permissions.VIEW_PRIVATE_CONSUMER_INSTRUMENTS, lambda: print("\nViewing private consumer instruments...\n")),
-                8: (Permissions.TELLER_ACCESS, lambda: print("\nAccessing Teller-specific options...\n"))
+                1: (Permissions.VIEW_BALANCE, lambda: user.check_balance()),
+                2: (Permissions.DEPOSIT, lambda: user.deposit(float(input("Enter amount to deposit: ")))),
+                3: (Permissions.WITHDRAW, lambda: user.withdraw(float(input("Enter amount to withdraw: ")))),
+                4: (Permissions.MODIFY_ACCOUNT, lambda: modify_account(user)),
+                5: (Permissions.CLOSE_ACCOUNT, lambda: close_account(user))
             }
 
             if choice in actions:
@@ -299,56 +259,41 @@ def just_invest_ui(user: User):
         except ValueError:
             print("\nInvalid input. Please enter a number.")
 
-    print("\nExiting the justInvest System. Goodbye!")
+    print("\nExiting the banking system. Goodbye!")
 
-def authenticate(db: sqlite3.Connection, username: str, password: str) -> bool:
-    try:
-        cursor = db.cursor()
-        cursor.execute(
-            "SELECT salt, hashed_password, serialized_user FROM Users WHERE username = ?",
-            (username,)
-        )
-        result = cursor.fetchone()
-        
-        if result:
-            stored_salt = result[0]
-            stored_hash = result[1]
-            
-            if PasswordManager.verify_password(password, stored_salt, stored_hash):
-                user = deserialize_user(result[2])
-                just_invest_ui(user)
-                return True
-        return False
-    except sqlite3.Error as e:
-        print(f"Error during authentication: {e}")
-        return False
+def modify_account(user: User):
+    print("Account Number : ", user.account_number)
+    user.username = input("Modify Username : ")
+    print("Note: Password cannot be modified here.")
+    print("Role and Account Number are immutable.")
+
+def close_account(user: User):
+    print(f"Account {user.account_number} will be closed.")
+    # Implement logic to remove the user from the file or mark as closed
+    print("Account closed successfully.")
 
 def main():
-    db = create_database()
-    if not db:
-        return
-
-    if not create_table(db):
-        db.close()
-        return
-
-    # Example user creation
+    filename = "banking_users.txt"
+    
     username_create = "Zarif"
     password_create = "7GUBFKBu!"
 
-    if insert_user(db, username_create, password_create, StandardClient, balance=1000.0):
+    if insert_user_to_file(filename, username_create, password_create, StandardUser, balance=1000.0):
         print("User successfully created!")
+        
+    # Add more test users if you want
+    insert_user_to_file(filename, "admin1", "Admin1@123", AdminUser)
 
-    print("\nHello! Welcome to justInvest.")
+    print("\nHello Welcome to the banking system.")
     username = input("Enter Username:\n").strip()
     password = input("Enter Password:\n").strip()
 
-    if authenticate(db, username, password):
+    user = authenticate_from_file(filename, username, password)
+    if user:
         print("Login Successful!")
+        banking_ui(user)
     else:
         print("Login Unsuccessful!")
-
-    db.close()
 
 if __name__ == "__main__":
     main()
