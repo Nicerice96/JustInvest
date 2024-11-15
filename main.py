@@ -735,6 +735,9 @@ def main():
 
         except ValueError:
             print("\nInvalid input. Please enter a number.")
+           
+        except ValueError:
+                print("\nInvalid input. Please enter a number.")
 
 #main funciton call
 if __name__ == "__main__":
