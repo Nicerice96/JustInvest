@@ -3,6 +3,7 @@ from enum import Enum
 from typing import List, Optional, Tuple
 from datetime import datetime
 
+
 class Permissions(Enum):
     """The various Permissons available in the justInvest System 
 
