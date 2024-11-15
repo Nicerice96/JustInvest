@@ -225,7 +225,8 @@ def save_users_to_file(users: dict, filename: str) -> None:
             file.write(f"{username},{user_data['hashed_password'].decode()},{user_data['role']},{user_data['balance']},{portfolio}\n")
 
 def insert_user(users: dict, username: str, password: str, user_class, balance: float = 0.0) -> bool:
-    if password_LUDS(password, username):
+    common_passwords = load_common_passwords('10k-most-common.txt')
+    if password_LUDS(password, common_passwords):
         try:
             # Hash password using bcrypt
             hashed_password = PasswordManager.hash_password(password)
@@ -261,8 +262,8 @@ def authenticate(users: dict, username: str, password: str) -> bool:
         print(f"Error during authentication: {e}")
         return False
 
-def password_LUDS(password: str, username: str) -> bool:
-    """Validate password meets Length, Uppercase, Digit, Symbol requirements"""
+def password_LUDS(password: str, common_passwords: set) -> bool:
+    """Validate password meets Length, Uppercase, Digit, Symbol requirements and is not a common password"""
     if not (8 <= len(password) <= 12):
         print("Password must be between 8 and 12 characters (inclusive).")
         return False
@@ -283,6 +284,10 @@ def password_LUDS(password: str, username: str) -> bool:
         return False
     if not has_special:
         print("Password must contain at least one symbol.")
+        return False
+
+    if password.lower() in common_passwords: 
+        print("Password is too common. Please choose a different password.")
         return False
 
     return True
@@ -439,6 +444,8 @@ def main():
     
     users = load_users_from_file('passwd.txt')
     create_sample_clients(users)
+    common_passwords = load_common_passwords("10k-most-common.txt")
+
     
     while True:
         print("\njustInvest System:")
@@ -457,6 +464,8 @@ def main():
             if choice == 1:
                 username = input("Enter Username:\n").strip()
                 password = input("Enter Password:\n").strip()
+                if(not(password_LUDS(password, common_passwords))):
+                    continue
                 user_type = input("Enter User Type (StandardClient, PremiumClient, Teller, FinancialAdvisor, FinancialPlanner):\n").strip()
                 balance = float(input("Enter Balance (if applicable):\n").strip()) if user_type in ['StandardClient', 'PremiumClient'] else 0.0
 
