@@ -584,37 +584,41 @@ def just_invest_ui(user: User, users: dict):
                     selected_client_data = users[selected_client_username]
                     selected_role = selected_client_data['role']
                     selected_hashed_password = selected_client_data['hashed_password']
-                    
+                    selected_balance = selected_client_data['balance']
+                    selected_portfolio = selected_client_data['portfolio']
+
                     if selected_role == 'StandardClient':
-                        if (isinstance(user, Teller)):
-                            if(user.is_within_business_hours()):
+                        selected_client = StandardClient(selected_client_username, selected_hashed_password, selected_balance)
+                        selected_client.portfolio = selected_portfolio
+                        if isinstance(user, Teller):
+                            if user.is_within_business_hours():
                                 print("Teller Access Granted!")
-                                selected_client = StandardClient(selected_client_username, selected_hashed_password)
-                                selected_client.add_permissions(user.role.permissions)
-                                just_invest_ui(selected_client, users)
-                                selected_client.revoke_permissions(user.role.permissions)
-                            else:
-                                print("Teller Access Denied!")
-                        else:     
-                            selected_client = StandardClient(selected_client_username, selected_hashed_password)
-                            selected_client.add_permissions(user.role.permissions)
-                            just_invest_ui(selected_client, users)
-                            selected_client.revoke_permissions(user.role.permissions)
-                    elif selected_role == 'PremiumClient':
-                        if (isinstance(user, Teller)):
-                            if(user.is_within_business_hours()):
-                                print("Teller Access Granted!")
-                                selected_client = StandardClient(selected_client_username, selected_hashed_password)
                                 selected_client.add_permissions(user.role.permissions)
                                 just_invest_ui(selected_client, users)
                                 selected_client.revoke_permissions(user.role.permissions)
                             else:
                                 print("Teller Access Denied!")
                         else:
-                            selected_client = PremiumClient(selected_client_username, selected_hashed_password)
                             selected_client.add_permissions(user.role.permissions)
                             just_invest_ui(selected_client, users)
                             selected_client.revoke_permissions(user.role.permissions)
+
+                    elif selected_role == 'PremiumClient':
+                        selected_client = PremiumClient(selected_client_username, selected_hashed_password, selected_balance)
+                        selected_client.portfolio = selected_portfolio
+                        if isinstance(user, Teller):
+                            if user.is_within_business_hours():
+                                print("Teller Access Granted!")
+                                selected_client.add_permissions(user.role.permissions)
+                                just_invest_ui(selected_client, users)
+                                selected_client.revoke_permissions(user.role.permissions)
+                            else:
+                                print("Teller Access Denied!")
+                        else:
+                            selected_client.add_permissions(user.role.permissions)
+                            just_invest_ui(selected_client, users)
+                            selected_client.revoke_permissions(user.role.permissions)
+
                     else:
                         print("\nSelected client has an unknown role. Returning to menu.")
                         continue
@@ -622,31 +626,29 @@ def just_invest_ui(user: User, users: dict):
                     print(f"Interacting with client: {selected_client_username}")
                 continue
 
-            if selected_client_username and selected_client_data:
                 # Perform actions on the selected client
-                actions = {
-                    1: (Permissions.CLIENT_VIEW_BALANCE, lambda: print(f"Current balance: ${selected_client.view_balance()}\n")),
-                    2: (Permissions.VIEW_CLIENT_PORTFOLIO, lambda: print(f"Portfolio: {selected_client.view_portfolio()}\n")),
-                    3: (Permissions.MODIFY_CLIENT_PORTFOLIO, lambda: selected_client.modify_portfolio()),
-                    4: (Permissions.VIEW_CONTACT_DETAILS_FA, lambda: print(f"Financial Advisor: {selected_client.get_financial_advisor()}")),
-                    5: (Permissions.VIEW_CONTACT_DETAILS_FP, lambda: print(f"Financial Planner: {selected_client.get_financial_planner()}")),
-                    6: (Permissions.VIEW_MONEY_MARKET_INSTRUMENTS, lambda: print(f"Money Market Instruments: {selected_client.get_money_market_instruments()}")),
-                    7: (Permissions.VIEW_PRIVATE_CONSUMER_INSTRUMENTS, lambda: print(f"Private Consumer Instruments: {selected_client.get_private_consumer_instruments()}")),
-                }
 
-                if choice in actions:
-                    permission, action = actions[choice]
-                    if user.has_permission(permission):
-                        action()
-                    else:
-                        print("\nYou do not have permission for this action.")
+            actions = {
+                1: (Permissions.CLIENT_VIEW_BALANCE, lambda: print(f"Current balance: ${user.view_balance()}\n")),
+                2: (Permissions.VIEW_CLIENT_PORTFOLIO, lambda: print(f"Portfolio: {user.view_portfolio()}\n")),
+                3: (Permissions.MODIFY_CLIENT_PORTFOLIO, lambda: user.modify_portfolio()),
+                4: (Permissions.VIEW_CONTACT_DETAILS_FA, lambda: print(f"Financial Advisor: {user.get_financial_advisor()}")),
+                5: (Permissions.VIEW_CONTACT_DETAILS_FP, lambda: print(f"Financial Planner: {user.get_financial_planner()}")),
+                6: (Permissions.VIEW_MONEY_MARKET_INSTRUMENTS, lambda: print(f"Money Market Instruments: {user.get_money_market_instruments()}")),
+                7: (Permissions.VIEW_PRIVATE_CONSUMER_INSTRUMENTS, lambda: print(f"Private Consumer Instruments: {user.get_private_consumer_instruments()}")),
+            }
+
+            if choice in actions:
+                permission, action = actions[choice]
+                if user.has_permission(permission):
+                    action()
                 else:
-                    print("\nInvalid choice. Please try again.")
+                        print("\nYou do not have permission for this action.")
             else:
-                print("\nPlease select a client to interact with first.")
+                    print("\nInvalid choice. Please try again.")
 
         except ValueError:
-            print("\nExiting.")
+                print("\nExiting.")
 
     print("\nExiting the justInvest System. Goodbye!")
     
