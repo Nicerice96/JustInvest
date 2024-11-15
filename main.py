@@ -2,54 +2,80 @@ import bcrypt
 from enum import Enum
 from typing import List, Optional, Tuple
 from datetime import datetime
-
 import os
 
-#in a perfect scenario this would be saved in an env for example (but this is an assignment so....)
+# Load the password pepper from the environment variable or use a default if not set.
+# In a real scenario, this should be stored securely, such as in an environment variable.
 pepper = os.environ.get('PASSWORD_PEPPER', '102030020120300120120301203110203')
+
 class Permissions(Enum):
-    """The various Permissons available in the justInvest System 
+    """The various permissions available in the justInvest System.
 
     Args:
         Enum (_type_): _description_
     """
-    CLIENT_VIEW_BALANCE = 1
-    VIEW_CLIENT_PORTFOLIO = 2
-    VIEW_CONTACT_DETAILS_FA = 3
-    MODIFY_CLIENT_PORTFOLIO = 4
-    VIEW_CONTACT_DETAILS_FP = 5
-    VIEW_MONEY_MARKET_INSTRUMENTS = 6
-    VIEW_PRIVATE_CONSUMER_INSTRUMENTS = 7
-    TELLER_ACCESS = 8
+    CLIENT_VIEW_BALANCE = 1  # Permission to view client balance
+    VIEW_CLIENT_PORTFOLIO = 2  # Permission to view client portfolio
+    VIEW_CONTACT_DETAILS_FA = 3  # Permission to view financial advisor contact details
+    MODIFY_CLIENT_PORTFOLIO = 4  # Permission to modify client portfolio
+    VIEW_CONTACT_DETAILS_FP = 5  # Permission to view financial planner contact details
+    VIEW_MONEY_MARKET_INSTRUMENTS = 6  # Permission to view money market instruments
+    VIEW_PRIVATE_CONSUMER_INSTRUMENTS = 7  # Permission to view private consumer instruments
+    TELLER_ACCESS = 8  # Permission for teller access
 
 class Role:
-    """A class simply to hold a given member of the justInvest System's role and their respective permissions
+    """A class to hold a given member of the justInvest System's role and their respective permissions.
+
+    Args:
+        role_type (str): The type of role.
+        permissions (List[Permissions]): A list of permissions associated with the role.
     """
     def __init__(self, role_type: str, permissions: List[Permissions]):
         self.role_type = role_type
         self.permissions = permissions
 
 class PasswordManager:
-    """hashing scheme for passwords
+    """A class for managing password hashing and verification using bcrypt.
 
     Returns:
         _type_: _description_
     """
     @staticmethod
     def hash_password(password: str) -> bytes:
-        """Hash a password with salt and pepper using bcrypt."""
+        """Hash a password with salt and pepper using bcrypt.
+
+        Args:
+            password (str): The password to be hashed.
+
+        Returns:
+            bytes: The hashed password.
+        """
         # Combine the password with the pepper
         password_with_pepper = (password + pepper).encode()
         return bcrypt.hashpw(password_with_pepper, bcrypt.gensalt())
 
     @staticmethod
     def verify_password(password: str, stored_hash: bytes) -> bool:
-        """Verify a password against stored hash."""
+        """Verify a password against a stored hash.
+
+        Args:
+            password (str): The password to verify.
+            stored_hash (bytes): The stored hashed password.
+
+        Returns:
+            bool: True if the password matches the stored hash, False otherwise.
+        """
         # Combine the password with the pepper
         password_with_pepper = (password + pepper).encode()
         return bcrypt.checkpw(password_with_pepper, stored_hash)
+
 class User:
-    """User default class
+    """User default class.
+
+    Args:
+        username (str): The username of the user.
+        hashed_password (bytes): The hashed password of the user.
+        role (Role): The role of the user.
     """
     def __init__(self, username: str, hashed_password: bytes, role: Role):
         self.username = username
@@ -63,35 +89,77 @@ class User:
         self.private_consumer_instruments = ""
 
     def has_permission(self, permission: Permissions) -> bool:
+        """Check if the user has a specific permission.
+
+        Args:
+            permission (Permissions): The permission to check.
+
+        Returns:
+            bool: True if the user has the permission, False otherwise.
+        """
         return permission in self.role.permissions
-    
+
     def add_permissions(self, permissions):
+        """Add permissions to the user's role.
+
+        Args:
+            permissions: The permissions to add.
+        """
         self.role.permissions.extend(permissions)
-        
+
     def revoke_permissions(self, permissions):
-        print(f"revoked permissions: ${permissions}")
+        """Revoke permissions from the user's role.
+
+        Args:
+            permissions: The permissions to revoke.
+        """
+        print(f"Revoked permissions: {permissions}")
         self.role.permissions.remove(permissions)
 
     def get_username(self) -> str:
+        """Get the username of the user.
+
+        Returns:
+            str: The username.
+        """
         return self.username
 
     def get_hashed_password(self) -> bytes:
+        """Get the hashed password of the user.
+
+        Returns:
+            bytes: The hashed password.
+        """
         return self.hashed_password
-    
+
     def view_balance(self):
+        """View the balance of the user if they have the necessary permission.
+
+        Returns:
+            float or str: The balance if the user has permission, otherwise a message indicating no permission.
+        """
         if self.has_permission(Permissions.CLIENT_VIEW_BALANCE):
             return self.balance
         else:
             return "You do not have permission to view the balance."
-        
 
     def view_portfolio(self):
+        """View the portfolio of the user if they have the necessary permission.
+
+        Returns:
+            list or str: The portfolio if the user has permission, otherwise a message indicating no permission.
+        """
         if self.has_permission(Permissions.VIEW_CLIENT_PORTFOLIO):
             return self.portfolio
         else:
             return "You do not have permission to view the portfolio."
 
     def modify_portfolio(self):
+        """Modify the portfolio of the user if they have the necessary permission.
+
+        Returns:
+            None or str: Modifies the portfolio if the user has permission, otherwise a message indicating no permission.
+        """
         if self.has_permission(Permissions.MODIFY_CLIENT_PORTFOLIO):
             print("Enter an Investment\n")
             input_val = input("\nPlease enter your Investment: ")
@@ -100,38 +168,73 @@ class User:
             return "You do not have permission to modify the portfolio."
 
     def set_financial_advisor(self, financial_advisor):
-        if(self.has_permission(Permissions.VIEW_CONTACT_DETAILS_FA)):
+        """Set the financial advisor for the user if they have the necessary permission.
+
+        Args:
+            financial_advisor: The financial advisor to set.
+        """
+        if self.has_permission(Permissions.VIEW_CONTACT_DETAILS_FA):
             self.financial_advisor = financial_advisor
 
     def get_financial_advisor(self):
-        if(self.has_permission(Permissions.VIEW_CONTACT_DETAILS_FA)):
+        """Get the financial advisor of the user if they have the necessary permission.
+
+        Returns:
+            str or None: The financial advisor if the user has permission, otherwise None.
+        """
+        if self.has_permission(Permissions.VIEW_CONTACT_DETAILS_FA):
             return self.financial_advisor
-        
+
     def set_financial_planner(self, financial_planner):
-        if (self.has_permission(Permissions.VIEW_CONTACT_DETAILS_FP)):
+        """Set the financial planner for the user if they have the necessary permission.
+
+        Args:
+            financial_planner: The financial planner to set.
+        """
+        if self.has_permission(Permissions.VIEW_CONTACT_DETAILS_FP):
             self.financial_planner = financial_planner
-            
+
     def get_financial_planner(self):
-        if(self.has_permission(Permissions.VIEW_CONTACT_DETAILS_FP)):
+        """Get the financial planner of the user if they have the necessary permission.
+
+        Returns:
+            str or None: The financial planner if the user has permission, otherwise None.
+        """
+        if self.has_permission(Permissions.VIEW_CONTACT_DETAILS_FP):
             return self.financial_planner
-        
+
     def get_money_market_instruments(self):
-        if (self.has_permission(Permissions.VIEW_MONEY_MARKET_INSTRUMENTS)):
+        """Get the money market instruments of the user if they have the necessary permission.
+
+        Returns:
+            str or None: The money market instruments if the user has permission, otherwise None.
+        """
+        if self.has_permission(Permissions.VIEW_MONEY_MARKET_INSTRUMENTS):
             return self.money_market_instrument
-        
+
     def get_private_consumer_instruments(self):
-        if (self.has_permission(Permissions.VIEW_PRIVATE_CONSUMER_INSTRUMENTS)):
+        """Get the private consumer instruments of the user if they have the necessary permission.
+
+        Returns:
+            str or None: The private consumer instruments if the user has permission, otherwise None.
+        """
+        if self.has_permission(Permissions.VIEW_PRIVATE_CONSUMER_INSTRUMENTS):
             return self.private_consumer_instruments
-        
+
     def is_within_business_hours(self) -> bool:
-        if (self.has_permission(Permissions.TELLER_ACCESS)):
+        """Check if the current time is within business hours.
+
+        Returns:
+            bool: True if within business hours, False otherwise.
+        """
+        if self.has_permission(Permissions.TELLER_ACCESS):
             current_time = datetime.now().time()
             start_time = datetime.strptime("09:00", "%H:%M").time()
             end_time = datetime.strptime("17:00", "%H:%M").time()
             return start_time <= current_time <= end_time
-        
+
 class StandardClient(User):
-    """Standard Client of the justInvest System
+    """Standard Client of the justInvest System.
 
     Args:
         User (_type_): _description_
@@ -152,7 +255,7 @@ class StandardClient(User):
         self.balance = balance
 
 class PremiumClient(User):
-    """Premium Client of the justInvest system
+    """Premium Client of the justInvest system.
 
     Args:
         User (_type_): _description_
@@ -174,7 +277,7 @@ class PremiumClient(User):
         self.balance = balance
 
 class Teller(User):
-    """Teller for the justInvest system
+    """Teller for the justInvest system.
 
     Args:
         User (_type_): _description_
@@ -185,14 +288,12 @@ class Teller(User):
             hashed_password,
             Role(
                 "Teller",
-                [Permissions.TELLER_ACCESS, 
-                 ]
+                [Permissions.TELLER_ACCESS]
             )
         )
-    
 
 class FinancialAdvisor(User):
-    """FinancialAdvisor of the justInvestSystem
+    """FinancialAdvisor of the justInvestSystem.
 
     Args:
         User (_type_): _description_
@@ -214,7 +315,7 @@ class FinancialAdvisor(User):
         )
 
 class FinancialPlanner(User):
-    """Financial Planner of the justInvest system
+    """Financial Planner of the justInvest system.
 
     Args:
         User (_type_): _description_
@@ -235,14 +336,15 @@ class FinancialPlanner(User):
                 ]
             )
         )
+
 def load_common_passwords(filename: str) -> set:
-    """load common password file (10k-most-common.txt)
+    """Load common passwords from a file.
 
     Args:
-        filename (str): _description_
+        filename (str): The filename containing common passwords.
 
     Returns:
-        set: _description_
+        set: A set of common passwords.
     """
     try:
         with open(filename, 'r') as file:
@@ -254,15 +356,14 @@ def load_common_passwords(filename: str) -> set:
 
 common_passwords = load_common_passwords('10k-most-common.txt')
 
-
 def load_users_from_file(filename: str) -> dict:
-    """loads the main password file, passwd.txt
+    """Load users from a file.
 
     Args:
-        filename (str): _description_
+        filename (str): The filename containing user data.
 
     Returns:
-        dict: _description_
+        dict: A dictionary of users.
     """
     try:
         users = {}
@@ -283,11 +384,11 @@ def load_users_from_file(filename: str) -> dict:
         return {}
 
 def save_users_to_file(users: dict, filename: str) -> None:
-    """save to passwd.txt
+    """Save users to a file.
 
     Args:
-        users (dict): _description_
-        filename (str): _description_
+        users (dict): A dictionary of users.
+        filename (str): The filename to save the users to.
     """
     with open(filename, 'w') as file:
         for username, user_data in users.items():
@@ -295,53 +396,54 @@ def save_users_to_file(users: dict, filename: str) -> None:
             file.write(f"{username},{user_data['hashed_password'].decode()},{user_data['role']},{user_data['balance']},{portfolio}\n")
 
 def insert_user(users: dict, username: str, password: str, user_class, balance: float = 0.0) -> bool:
-    """inserts a user into passwd.txt
+    """Insert a user into the users dictionary and save to file.
 
     Args:
-        users (dict): _description_
-        username (str): _description_
-        password (str): _description_
-        user_class (_type_): _description_
-        balance (float, optional): _description_. Defaults to 0.0.
+        users (dict): The dictionary of users.
+        username (str): The username of the new user.
+        password (str): The password of the new user.
+        user_class: The class of the new user.
+        balance (float, optional): The balance of the new user. Defaults to 0.0.
 
     Returns:
-        bool: _description_
+        bool: True if the user was successfully inserted, False otherwise.
     """
     common_passwords = load_common_passwords('10k-most-common.txt')
-    if password_LUDS(password, common_passwords):
-        try:
-            # Hash password using bcrypt
-            hashed_password = PasswordManager.hash_password(password)
-            
-            # Create user instance with hashed credentials
-            if user_class in (StandardClient, PremiumClient):
-                user = user_class(username, hashed_password, balance)
-            else:
-                user = user_class(username, hashed_password)
-            
-            users[username] = {
-                'hashed_password': hashed_password,
-                'role': type(user).__name__,
-                'balance': user.balance,
-                'portfolio': user.portfolio
-            }
-            save_users_to_file(users, 'passwd.txt')
-            return True
-        except Exception as e:
-            print(f"Error inserting user: {e}")
-            return False
-    return False
+    if not password_LUDS(password, common_passwords):
+        return False
+
+    try:
+        # Hash password using bcrypt
+        hashed_password = PasswordManager.hash_password(password)
+        
+        # Create user instance with hashed credentials
+        if user_class in (StandardClient, PremiumClient):
+            user = user_class(username, hashed_password, balance)
+        else:
+            user = user_class(username, hashed_password)
+        
+        users[username] = {
+            'hashed_password': hashed_password,
+            'role': type(user).__name__,
+            'balance': user.balance,
+            'portfolio': user.portfolio
+        }
+        save_users_to_file(users, 'passwd.txt')
+        return True
+    except Exception as e:
+        print(f"Error inserting user: {e}")
+        return False
 
 def authenticate(users: dict, username: str, password: str) -> bool:
-    """authentication method for a given user
+    """Authenticate a user.
 
     Args:
-        users (dict): _description_
-        username (str): _description_
-        password (str): _description_
+        users (dict): The dictionary of users.
+        username (str): The username to authenticate.
+        password (str): The password to authenticate.
 
     Returns:
-        bool: _description_
+        bool: True if the authentication is successful, False otherwise.
     """
     try:
         user_data = users.get(username)
@@ -362,14 +464,14 @@ def authenticate(users: dict, username: str, password: str) -> bool:
         return False
 
 def password_LUDS(password: str, common_passwords: set) -> bool:
-    """password creation validation, must be in LUDS format and NOT common
+    """Validate a password to ensure it meets the LUDS (Length, Uppercase, Digit, Special) criteria and is not common.
 
     Args:
-        password (str): _description_
-        common_passwords (set): _description_
+        password (str): The password to validate.
+        common_passwords (set): A set of common passwords.
 
     Returns:
-        bool: _description_
+        bool: True if the password is valid, False otherwise.
     """
     if not (8 <= len(password) <= 12):
         print("Password must be between 8 and 12 characters (inclusive).")
@@ -400,13 +502,13 @@ def password_LUDS(password: str, common_passwords: set) -> bool:
     return True
 
 def display_clients(users: dict):
-    """display all clients 
+    """Display all clients.
 
     Args:
-        users (dict): _description_
+        users (dict): The dictionary of users.
 
     Returns:
-        _type_: _description_
+        str or None: The selected client's username or None if no client is selected.
     """
     print("\nAvailable Clients:")
     print("------------------")
@@ -438,8 +540,8 @@ def just_invest_ui(user: User, users: dict):
     """The main UI for justInvest
 
     Args:
-        user (User): _description_
-        users (dict): _description_
+        user (User): The current user the justInvest System is dealing with it
+        users (dict): The dictionary of users
     """
     running = True
     selected_client_username = None
@@ -552,7 +654,7 @@ def create_sample_clients(users):
     """creation of sample clients
 
     Args:
-        users (_type_): _description_
+        users (dict): The dictionary of users 
     """
     sample_clients = [
         ("john_doe", "P@ssw0rd1", StandardClient, 1000.0),
@@ -590,6 +692,7 @@ def main():
             print()
 
             if choice == 0:
+                print("Application closing...")
                 break
 
             if choice == 1:
