@@ -3,6 +3,7 @@ The justInvest System is a comprehensive application designed to manage user acc
 
 ## Key Features 
 
+<<<<<<< HEAD
 ### User Roles and Permissions 📋 
 - The system supports multiple user roles, including `StandardClient`, `PremiumClient`, `Teller`, `FinancialAdvisor`, and `FinancialPlanner`.
 - Each role is associated with specific permissions, such as viewing account balances, portfolios, and contact details, as well as modifying portfolios and accessing various financial instruments.
@@ -29,6 +30,14 @@ The justInvest System is a comprehensive application designed to manage user acc
 To install the necessary dependencies, run the following command in your terminal (this was not necessary on the VM for some reason):
 ```bash
 pip install bcrypt
+=======
+# How to Run
+
+you may run the application via on the VM via: 
+
+## TERMINAL:
+
+>>>>>>> c576f54 (updated README.md)
 ```
 
 ### Running the Application 🏃
@@ -39,6 +48,11 @@ _On the VM for this assigment:_
 python3 main.py
 ```
 
+<<<<<<< HEAD
+=======
+# Note!
+You have to register as a user (it will prompt you as to which type of user you want to be) in order to be able to login, you will see a text file appear in the project directory, that is where the inforamtion is stored. Some of the information is public, some of it is private (using salt and pepper as well as hashing schemes) : The security measures are discussed in the project write up.
+>>>>>>> c576f54 (updated README.md)
 
 ## Usage
 
