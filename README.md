@@ -26,7 +26,7 @@ The justInvest System is a comprehensive application designed to manage user acc
 - `datetime` for time-related operations
 
 ### Installation 🔨
-To install the necessary dependencies, run the following command in your terminal:
+To install the necessary dependencies, run the following command in your terminal (this was not necessary on the VM for some reason):
 ```bash
 pip install bcrypt
 ```
