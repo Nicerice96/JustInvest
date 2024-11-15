@@ -4,7 +4,6 @@ import re
 from enum import Enum
 from typing import List, Optional, Tuple
 from datetime import datetime
-import os
 
 class Permissions(Enum):
     CLIENT_VIEW_BALANCE = 1
@@ -40,6 +39,9 @@ class User:
         self.balance = 0.0
         self.portfolio = []
         self.financial_advisor = None
+        self.financial_planner = None
+        self.money_market_instrument = ""
+        self.private_consumer_instruments = ""
 
     def has_permission(self, permission: Permissions) -> bool:
         return permission in self.role.permissions
@@ -50,8 +52,14 @@ class User:
     def get_hashed_password(self) -> bytes:
         return self.hashed_password
     
-    def view_portfolio(self):
+    def view_balance(self):
         if self.has_permission(Permissions.CLIENT_VIEW_BALANCE):
+            return self.balance
+        else:
+            return "You do not have permission to view the balance."
+
+    def view_portfolio(self):
+        if self.has_permission(Permissions.VIEW_CLIENT_PORTFOLIO):
             return self.portfolio
         else:
             return "You do not have permission to view the portfolio."
@@ -63,7 +71,7 @@ class User:
             self.portfolio.append(input_val)
         else:
             return "You do not have permission to modify the portfolio."
-        
+
     def set_financial_advisor(self, financial_advisor):
         if(self.has_permission(Permissions.VIEW_CONTACT_DETAILS_FA)):
             self.financial_advisor = financial_advisor
@@ -71,7 +79,22 @@ class User:
     def get_financial_advisor(self):
         if(self.has_permission(Permissions.VIEW_CONTACT_DETAILS_FA)):
             return self.financial_advisor
-
+        
+    def set_financial_planner(self, financial_planner):
+        if (self.has_permission(Permissions.VIEW_CONTACT_DETAILS_FP)):
+            self.financial_planner = financial_planner
+            
+    def get_financial_planner(self):
+        if(self.has_permission(Permissions.VIEW_CONTACT_DETAILS_FP)):
+            return self.financial_planner
+        
+    def get_money_market_instruments(self):
+        if (self.has_permission(Permissions.VIEW_MONEY_MARKET_INSTRUMENTS)):
+            return self.money_market_instrument
+        
+    def get_private_consumer_instruments(self):
+        if (self.has_permission(Permissions.VIEW_PRIVATE_CONSUMER_INSTRUMENTS)):
+            return self.private_consumer_instruments
 class StandardClient(User):
     def __init__(self, username: str, hashed_password: bytes, balance: float = 0.0):
         super().__init__(
@@ -169,10 +192,12 @@ def load_users_from_file(filename: str) -> dict:
         users = {}
         with open(filename, 'r') as file:
             for line in file.readlines():
-                username, hashed_password, role = line.strip().split(',')
+                username, hashed_password, role, balance, portfolio = line.strip().split(',')
                 users[username] = {
                     'hashed_password': hashed_password.encode(),
-                    'role': role
+                    'role': role,
+                    'balance': float(balance),
+                    'portfolio': portfolio.split(';') if portfolio else []
                 }
         return users
     except FileNotFoundError:
@@ -184,7 +209,8 @@ def load_users_from_file(filename: str) -> dict:
 def save_users_to_file(users: dict, filename: str) -> None:
     with open(filename, 'w') as file:
         for username, user_data in users.items():
-            file.write(f"{username},{user_data['hashed_password'].decode()}, {user_data['role']}\n")
+            portfolio = ';'.join(user_data['portfolio']) if user_data['portfolio'] else ''
+            file.write(f"{username},{user_data['hashed_password'].decode()},{user_data['role']},{user_data['balance']},{portfolio}\n")
 
 def insert_user(users: dict, username: str, password: str, user_class, balance: float = 0.0) -> bool:
     if password_LUDS(password, username):
@@ -200,7 +226,9 @@ def insert_user(users: dict, username: str, password: str, user_class, balance: 
             
             users[username] = {
                 'hashed_password': hashed_password,
-                'role': type(user).__name__
+                'role': type(user).__name__,
+                'balance': user.balance,
+                'portfolio': user.portfolio
             }
             save_users_to_file(users, 'passwd.txt')
             return True
@@ -208,7 +236,6 @@ def insert_user(users: dict, username: str, password: str, user_class, balance: 
             print(f"Error inserting user: {e}")
             return False
     return False
-
 def authenticate(users: dict, username: str, password: str) -> bool:
     try:
         user_data = users.get(username)
@@ -246,9 +273,39 @@ def password_LUDS(password: str, username: str) -> bool:
         return False
 
     return True
+def display_clients(users: dict):
+    """Displays a list of all clients for the Financial Advisor to choose from."""
+    print("\nAvailable Clients:")
+    print("------------------")
+    client_list = [username for username, user_data in users.items() if user_data['role'] in ['StandardClient', 'PremiumClient']]
+    
+    if not client_list:
+        print("No clients available.")
+        return None
+    
+    for idx, client in enumerate(client_list):
+        print(f"{idx + 1}. {client}")
 
-def just_invest_ui(user: User):
+    try:
+        choice = int(input("\nSelect a client by number (or 0 to cancel): "))
+        if choice == 0:
+            return None
+        if 1 <= choice <= len(client_list):
+            selected_client = client_list[choice - 1]
+            print(f"\nSelected Client: {selected_client}")
+            return selected_client
+        else:
+            print("Invalid selection. Returning to menu.")
+            return None
+    except ValueError:
+        print("Invalid input. Returning to menu.")
+        return None
+
+def just_invest_ui(user: User, users: dict):
     running = True
+    selected_client_username = None
+    selected_client_data = None
+    
     while running:
         print("\njustInvest System:")
         print("-----------------------------")
@@ -270,6 +327,8 @@ def just_invest_ui(user: User):
             print("7. View private consumer instruments")
         if user.has_permission(Permissions.TELLER_ACCESS):
             print("8. Teller-specific options")
+        if isinstance(user, FinancialAdvisor) or isinstance(user, FinancialPlanner) or isinstance(user, Teller):
+            print("9. Select a client to interact with")
         print("0. Exit")
 
         try:
@@ -280,33 +339,75 @@ def just_invest_ui(user: User):
                 running = False
                 continue
 
-            actions = {
-                1: (Permissions.CLIENT_VIEW_BALANCE, lambda: print(f"\nCurrent balance: ${user.balance:.2f}\n")),
-                2: (Permissions.VIEW_CLIENT_PORTFOLIO, lambda: print(user.view_portfolio())),
-                3: (Permissions.MODIFY_CLIENT_PORTFOLIO, lambda: print(user.modify_portfolio())),
-                4: (Permissions.VIEW_CONTACT_DETAILS_FA, lambda: print(user.get_financial_advisor())),
-                5: (Permissions.VIEW_CONTACT_DETAILS_FP, lambda: print("\nViewing Financial Planner contact details...\n")),
-                6: (Permissions.VIEW_MONEY_MARKET_INSTRUMENTS, lambda: print("\nViewing money market instruments...\n")),
-                7: (Permissions.VIEW_PRIVATE_CONSUMER_INSTRUMENTS, lambda: print("\nViewing private consumer instruments...\n")),
-                8: (Permissions.TELLER_ACCESS, lambda: print("\nAccessing Teller-specific options...\n"))
-            }
+            if choice == 9 and (isinstance(user, FinancialAdvisor) or isinstance(user, FinancialPlanner) or isinstance(user, Teller)):
+                selected_client_username = display_clients(users)
+                if selected_client_username:
+                    selected_client_data = users[selected_client_username]
+                    selected_role = selected_client_data['role']
+                    selected_hashed_password = selected_client_data['hashed_password']
+                    
+                    if selected_role == 'StandardClient':
+                        selected_client = StandardClient(selected_client_username, selected_hashed_password)
+                        just_invest_ui(selected_client, users)
+                    elif selected_role == 'PremiumClient':
+                        selected_client = PremiumClient(selected_client_username, selected_hashed_password)
+                        just_invest_ui(selected_client, users)
+                    else:
+                        print("\nSelected client has an unknown role. Returning to menu.")
+                        continue
 
-            if choice in actions:
-                permission, action = actions[choice]
-                if user.has_permission(permission):
-                    action()
+                    print(f"Interacting with client: {selected_client_username}")
+                continue
+
+            if selected_client_username and selected_client_data:
+                # Perform actions on the selected client
+                actions = {
+                    1: (Permissions.CLIENT_VIEW_BALANCE, lambda: print(f"Current balance: ${selected_client.balance:.2f}\n")),
+                    2: (Permissions.VIEW_CLIENT_PORTFOLIO, lambda: print(f"Portfolio: {selected_client.view_portfolio()}\n")),
+                    3: (Permissions.MODIFY_CLIENT_PORTFOLIO, lambda: selected_client.modify_portfolio()),
+                    4: (Permissions.VIEW_CONTACT_DETAILS_FA, lambda: print(f"Financial Advisor: {selected_client.get_financial_advisor()}")),
+                    5: (Permissions.VIEW_CONTACT_DETAILS_FP, lambda: print(f"Financial Planner: {selected_client.get_financial_planner()}")),
+                    6: (Permissions.VIEW_MONEY_MARKET_INSTRUMENTS, lambda: print(f"Money Market Instruments: {selected_client.get_money_market_instruments()}")),
+                    7: (Permissions.VIEW_PRIVATE_CONSUMER_INSTRUMENTS, lambda: print(f"Private Consumer Instruments: {selected_client.get_private_consumer_instruments()}")),
+                    8: (Permissions.TELLER_ACCESS, lambda: print("\nAccessing Teller-specific options...\n"))
+                }
+
+                if choice in actions:
+                    permission, action = actions[choice]
+                    if user.has_permission(permission):
+                        action()
+                    else:
+                        print("\nYou do not have permission for this action.")
                 else:
-                    print("\nYou do not have permission for this action.")
+                    print("\nInvalid choice. Please try again.")
             else:
-                print("\nInvalid choice. Please try again.")
+                print("\nPlease select a client to interact with first.")
 
         except ValueError:
             print("\nInvalid input. Please enter a number.")
 
     print("\nExiting the justInvest System. Goodbye!")
+    
+def create_sample_clients(users):
+    sample_clients = [
+        ("john_doe", "P@ssw0rd1", StandardClient, 1000.0),
+        ("jane_smith", "Str0ngP@ss2", PremiumClient, 5000.0),
+        ("bob_johnson", "S3cur3P@ss3", StandardClient, 2000.0),
+        ("alice_brown", "C0mpl3xP@ss4", PremiumClient, 10000.0)
+    ]
+
+    for username, password, user_class, balance in sample_clients:
+        if insert_user(users, username, password, user_class, balance):
+            print(f"Sample client {username} created successfully.")
+        else:
+            print(f"Failed to create sample client {username}.")
+
 
 def main():
+    
+    
     users = load_users_from_file('passwd.txt')
+    create_sample_clients(users)
     
     while True:
         print("\njustInvest System:")
@@ -320,7 +421,6 @@ def main():
             print()
 
             if choice == 0:
-                os.remove("passwd.txt")
                 break
 
             if choice == 1:
@@ -362,7 +462,7 @@ def main():
                         user = FinancialPlanner(username, user_data['hashed_password'])
                     else:
                         print("Invalid user type")
-                    just_invest_ui(user)
+                    just_invest_ui(user, users)
                     print("Login Successful!")
                 else:
                     print("Login Unsuccessful!")
