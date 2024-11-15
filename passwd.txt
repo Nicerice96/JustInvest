@@ -1,1 +1,2 @@
-Zarif,$2b$12$h8QRJKcojJ6ThkpodeAmFufHavJAVro/hAz4wxgvUqRC9pGyFZrIK, StandardClient
+Zarif,$2b$12$h8QRJKcojJ6ThkpodeAmFufHavJAVro/hAz4wxgvUqRC9pGyFZrIK,  StandardClient
+testuser,$2b$12$.tmidNBxT93bxVV/qhT6JOsAjNQEPnX0TJqQCsX/niDNw7DgvlVnG, StandardClient

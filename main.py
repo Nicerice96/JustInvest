@@ -284,68 +284,37 @@ def just_invest_ui(user: User):
 
 def main():
     users = load_users_from_file('passwd.txt')
+
+    username = "testuser"
+    password = "P@ssw0rd"
+    user_type = "StandardClient"
+    balance = 0.0
+
+    user_classes = {
+        'StandardClient': StandardClient,
+        'PremiumClient': PremiumClient,
+        'Teller': Teller,
+        'FinancialAdvisor': FinancialAdvisor,
+        'FinancialPlanner': FinancialPlanner
+    }
+
+    if user_type in user_classes:
+        if insert_user(users, username, password, user_classes[user_type], balance):
+            print("User successfully created!")
+
     
-    while True:
-        print("\njustInvest System:")
-        print("-----------------------------")
-        print("1. Register")
-        print("2. Login")
-        print("0. Exit")
+    users = load_users_from_file('passwd.txt')
 
-        try:
-            choice = int(input("\nPlease enter your choice: "))
-            print()
-
-            if choice == 0:
-                break
-
-            if choice == 1:
-                username = input("Enter Username:\n").strip()
-                password = input("Enter Password:\n").strip()
-                user_type = input("Enter User Type (StandardClient, PremiumClient, Teller, FinancialAdvisor, FinancialPlanner):\n").strip()
-                balance = float(input("Enter Balance (if applicable):\n").strip()) if user_type in ['StandardClient', 'PremiumClient'] else 0.0
-
-                user_classes = {
-                    'StandardClient': StandardClient,
-                    'PremiumClient': PremiumClient,
-                    'Teller': Teller,
-                    'FinancialAdvisor': FinancialAdvisor,
-                    'FinancialPlanner': FinancialPlanner
-                }
-
-                if user_type in user_classes:
-                    if insert_user(users, username, password, user_classes[user_type], balance):
-                        print("User successfully created!")
-                else:
-                    print("Invalid user type.")
-
-            elif choice == 2:
-                username = input("Enter Username:\n").strip()
-                password = input("Enter Password:\n").strip()
-
-                if authenticate(users, username, password):
-                    user_data = users[username]
-                    role_type = user_data['role']
-                    if role_type == 'StandardClient':
-                        user = StandardClient(username, user_data['hashed_password'])
-                    elif role_type == 'PremiumClient':
-                        user = PremiumClient(username, user_data['hashed_password'])
-                    elif role_type == 'Teller':
-                        user = Teller(username, user_data['hashed_password'])
-                    elif role_type == 'FinancialAdvisor':
-                        user = FinancialAdvisor(username, user_data['hashed_password'])
-                    elif role_type == 'FinancialPlanner':
-                        user = FinancialPlanner(username, user_data['hashed_password'])
-                    just_invest_ui(user)
-                    print("Login Successful!")
-                else:
-                    print("Login Unsuccessful!")
-
-            else:
-                print("\nInvalid choice. Please try again.")
-
-        except ValueError:
-            print("\nInvalid input. Please enter a number.")
+    
+    if username in users:
+        user_data = users[username]
+        stored_hash = user_data['hashed_password']
+        if PasswordManager.verify_password(password, stored_hash):
+            print(f"User {username} retrieved and password verified successfully.")
+        else:
+            print(f"Password verification for user {username} failed.")
+    else:
+        print(f"User {username} not found in the passwd.txt file.")
 
 if __name__ == "__main__":
     main()
