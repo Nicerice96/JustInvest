@@ -1,11 +1,9 @@
-import sqlite3
-import pickle
+import bcrypt
+import secrets
+import re
 from enum import Enum
 from typing import List, Optional, Tuple
 from datetime import datetime
-import hashlib
-import secrets
-import re
 
 class Permissions(Enum):
     CLIENT_VIEW_BALANCE = 1
@@ -23,29 +21,20 @@ class Role:
         self.permissions = permissions
 
 class PasswordManager:
-    PEPPER = b"your_secure_pepper_value_here"
-    
     @staticmethod
-    def hash_password(password: str) -> Tuple[bytes, bytes]:
-        """Hash a password with salt and pepper.
-        Returns: (salt, hashed_password)"""
-        salt = secrets.token_bytes(32)
-        salted_peppered = password.encode() + salt + PasswordManager.PEPPER
-        hashed = hashlib.sha256(salted_peppered).digest()
-        return salt, hashed
-    
+    def hash_password(password: str) -> bytes:
+        """Hash a password with salt using bcrypt."""
+        return bcrypt.hashpw(password.encode(), bcrypt.gensalt())
+
     @staticmethod
-    def verify_password(password: str, stored_salt: bytes, stored_hash: bytes) -> bool:
-        """Verify a password against stored salt and hash"""
-        salted_peppered = password.encode() + stored_salt + PasswordManager.PEPPER
-        hashed = hashlib.sha256(salted_peppered).digest()
-        return secrets.compare_digest(hashed, stored_hash)
+    def verify_password(password: str, stored_hash: bytes) -> bool:
+        """Verify a password against stored hash."""
+        return bcrypt.checkpw(password.encode(), stored_hash)
 
 class User:
-    def __init__(self, username: str, hashed_password: bytes, salt: bytes, role: Role):
+    def __init__(self, username: str, hashed_password: bytes, role: Role):
         self.username = username
         self.hashed_password = hashed_password
-        self.salt = salt
         self.role = role
         self.balance = 0.0
         self.portfolio = []
@@ -58,16 +47,12 @@ class User:
 
     def get_hashed_password(self) -> bytes:
         return self.hashed_password
-        
-    def get_salt(self) -> bytes:
-        return self.salt
 
 class StandardClient(User):
-    def __init__(self, username: str, hashed_password: bytes, salt: bytes, balance: float = 0.0):
+    def __init__(self, username: str, hashed_password: bytes, balance: float = 0.0):
         super().__init__(
             username,
             hashed_password,
-            salt,
             Role(
                 "StandardClient",
                 [
@@ -80,11 +65,10 @@ class StandardClient(User):
         self.balance = balance
 
 class PremiumClient(User):
-    def __init__(self, username: str, hashed_password: bytes, salt: bytes, balance: float = 0.0):
+    def __init__(self, username: str, hashed_password: bytes, balance: float = 0.0):
         super().__init__(
             username,
             hashed_password,
-            salt,
             Role(
                 "PremiumClient",
                 [
@@ -98,11 +82,10 @@ class PremiumClient(User):
         self.balance = balance
 
 class Teller(User):
-    def __init__(self, username: str, hashed_password: bytes, salt: bytes):
+    def __init__(self, username: str, hashed_password: bytes):
         super().__init__(
             username,
             hashed_password,
-            salt,
             Role(
                 "Teller",
                 [Permissions.TELLER_ACCESS]
@@ -123,11 +106,10 @@ class Teller(User):
         return super().has_permission(permission)
 
 class FinancialAdvisor(User):
-    def __init__(self, username: str, hashed_password: bytes, salt: bytes):
+    def __init__(self, username: str, hashed_password: bytes):
         super().__init__(
             username,
             hashed_password,
-            salt,
             Role(
                 "FinancialAdvisor",
                 [
@@ -141,11 +123,10 @@ class FinancialAdvisor(User):
         )
 
 class FinancialPlanner(User):
-    def __init__(self, username: str, hashed_password: bytes, salt: bytes):
+    def __init__(self, username: str, hashed_password: bytes):
         super().__init__(
             username,
             hashed_password,
-            salt,
             Role(
                 "FinancialPlanner",
                 [
@@ -159,11 +140,64 @@ class FinancialPlanner(User):
             )
         )
 
-def serialize_user(user: User) -> bytes:
-    return pickle.dumps(user)
+### Functions to Manage Password File
 
-def deserialize_user(serialized_user: bytes) -> User:
-    return pickle.loads(serialized_user)
+def load_users_from_file(filename: str) -> dict:
+    try:
+        users = {}
+        with open(filename, 'r') as file:
+            for line in file.readlines():
+                username, hashed_password, role = line.strip().split(',')
+                users[username] = {
+                    'hashed_password': hashed_password.encode(),
+                    'role': role
+                }
+        return users
+    except FileNotFoundError:
+        return {}
+    except Exception as e:
+        print(f"Error loading users: {e}")
+        return {}
+
+def save_users_to_file(users: dict, filename: str) -> None:
+    with open(filename, 'w') as file:
+        for username, user_data in users.items():
+            file.write(f"{username},{user_data['hashed_password'].decode()}, {user_data['role']}\n")
+
+def insert_user(users: dict, username: str, password: str, user_class, balance: float = 0.0) -> bool:
+    if password_LUDS(password, username):
+        try:
+            # Hash password using bcrypt
+            hashed_password = PasswordManager.hash_password(password)
+            
+            # Create user instance with hashed credentials
+            if user_class in (StandardClient, PremiumClient):
+                user = user_class(username, hashed_password, balance)
+            else:
+                user = user_class(username, hashed_password)
+            
+            users[username] = {
+                'hashed_password': hashed_password,
+                'role': type(user).__name__
+            }
+            save_users_to_file(users, 'passwd.txt')
+            return True
+        except Exception as e:
+            print(f"Error inserting user: {e}")
+            return False
+    return False
+
+def authenticate(users: dict, username: str, password: str) -> bool:
+    try:
+        user_data = users.get(username)
+        if user_data:
+            stored_hash = user_data['hashed_password']
+            if PasswordManager.verify_password(password, stored_hash):
+                return True
+        return False
+    except Exception as e:
+        print(f"Error during authentication: {e}")
+        return False
 
 def password_LUDS(password: str, username: str) -> bool:
     """Validate password meets Length, Uppercase, Digit, Symbol requirements"""
@@ -190,57 +224,6 @@ def password_LUDS(password: str, username: str) -> bool:
 
     return all([has_upper, has_lower, has_digit, has_special])
 
-def create_database() -> Optional[sqlite3.Connection]:
-    try:
-        db = sqlite3.connect("justInvest.db")
-        return db
-    except sqlite3.Error as e:
-        print(f"Error opening database: {e}")
-        return None
-
-def create_table(db: sqlite3.Connection) -> bool:
-    try:
-        cursor = db.cursor()
-        cursor.execute("""
-            CREATE TABLE IF NOT EXISTS Users (
-                username TEXT PRIMARY KEY,
-                salt BLOB NOT NULL,
-                hashed_password BLOB NOT NULL,
-                serialized_user BLOB NOT NULL
-            )
-        """)
-        db.commit()
-        return True
-    except sqlite3.Error as e:
-        print(f"Error in creating table: {e}")
-        return False
-
-def insert_user(db: sqlite3.Connection, username: str, password: str, user_class, balance: float = 0.0) -> bool:
-    if password_LUDS(password, username):
-        try:
-            # Hash password with salt and pepper
-            salt, hashed_password = PasswordManager.hash_password(password)
-            
-            # Create user instance with hashed credentials
-            if user_class in (StandardClient, PremiumClient):
-                user = user_class(username, hashed_password, salt, balance)
-            else:
-                user = user_class(username, hashed_password, salt)
-            
-            cursor = db.cursor()
-            serialized_user = serialize_user(user)
-            
-            cursor.execute(
-                "INSERT INTO Users (username, salt, hashed_password, serialized_user) VALUES (?, ?, ?, ?)",
-                (username, salt, hashed_password, serialized_user)
-            )
-            db.commit()
-            return True
-        except sqlite3.Error as e:
-            print(f"Error inserting user: {e}")
-            return False
-    return False
-
 def just_invest_ui(user: User):
     running = True
     while running:
@@ -248,7 +231,6 @@ def just_invest_ui(user: User):
         print("-----------------------------")
         print(f"Operations Available to {user.get_username()}:")
 
-        
         if user.has_permission(Permissions.CLIENT_VIEW_BALANCE):
             print("1. View account balance")
         if user.has_permission(Permissions.VIEW_CLIENT_PORTFOLIO):
@@ -275,7 +257,6 @@ def just_invest_ui(user: User):
                 running = False
                 continue
 
-            # Define actions with deferred execution
             actions = {
                 1: (Permissions.CLIENT_VIEW_BALANCE, lambda: print(f"\nCurrent balance: ${user.balance:.2f}\n")),
                 2: (Permissions.VIEW_CLIENT_PORTFOLIO, lambda: print("\nViewing portfolio...\n")),
@@ -301,109 +282,70 @@ def just_invest_ui(user: User):
 
     print("\nExiting the justInvest System. Goodbye!")
 
-def authenticate(db: sqlite3.Connection, username: str, password: str) -> bool:
-    try:
-        cursor = db.cursor()
-        cursor.execute(
-            "SELECT salt, hashed_password, serialized_user FROM Users WHERE username = ?",
-            (username,)
-        )
-        result = cursor.fetchone()
-        
-        if result:
-            stored_salt = result[0]
-            stored_hash = result[1]
-            
-            if PasswordManager.verify_password(password, stored_salt, stored_hash):
-                user = deserialize_user(result[2])
-                just_invest_ui(user)
-                return True
-        return False
-    except sqlite3.Error as e:
-        print(f"Error during authentication: {e}")
-        return False
-
-def export_db_to_txt(db: sqlite3.Connection, filename: str = "justInvest_backup.txt") -> bool:
-    """
-    Export database contents to a text file.
-    Note: This exports user info without sensitive data (no passwords/hashes)
-    
-    Args:
-        db: SQLite database connection
-        filename: Name of the output text file
-        
-    Returns:
-        bool: True if export successful, False otherwise
-    """
-    try:
-        cursor = db.cursor()
-        cursor.execute("SELECT username, serialized_user FROM Users")
-        results = cursor.fetchall()
-        
-        with open(filename, 'w') as f:
-            f.write("JustInvest Database Backup\n")
-            f.write("========================\n\n")
-            
-            for username, serialized_user in results:
-                user = deserialize_user(serialized_user)
-                f.write(f"Username: {username}\n")
-                f.write(f"Role: {user.role.role_type}\n")
-                f.write(f"Permissions: \n")
-                for permission in user.role.permissions:
-                    f.write(f"  - {permission.name}\n")
-                if hasattr(user, 'balance'):
-                    f.write(f"Balance: ${user.balance:.2f}\n")
-                if hasattr(user, 'portfolio'):
-                    f.write(f"Portfolio Items: {len(user.portfolio)}\n")
-                f.write("\n" + "-"*50 + "\n\n")
-                
-        print(f"Database successfully exported to {filename}")
-        return True
-        
-    except sqlite3.Error as e:
-        print(f"Database error during export: {e}")
-        return False
-    except IOError as e:
-        print(f"File error during export: {e}")
-        return False
-    except Exception as e:
-        print(f"Error during export: {e}")
-        return False
-
-# Add this to your main() function:
 def main():
-    db = create_database()
-    if not db:
-        return
-
-    if not create_table(db):
-        db.close()
-        return
-
-    username_create = "Zarif"
-    password_create = "7GUBFKBu!"
-
-    if insert_user(db, username_create, password_create, StandardClient, balance=1000.0):
-        print("User successfully created!")
-        
-    # Add more test users if you want
-    insert_user(db, "advisor1", "Adv1sor@123", FinancialAdvisor)
-    insert_user(db, "planner1", "Plan1er@123", FinancialPlanner)
-    insert_user(db, "premium1", "Prem1um@123", PremiumClient, balance=5000.0)
+    users = load_users_from_file('passwd.txt')
     
-    # Export database to text file
-    export_db_to_txt(db)
+    while True:
+        print("\njustInvest System:")
+        print("-----------------------------")
+        print("1. Register")
+        print("2. Login")
+        print("0. Exit")
 
-    print("\nHello! Welcome to justInvest.")
-    username = input("Enter Username:\n").strip()
-    password = input("Enter Password:\n").strip()
+        try:
+            choice = int(input("\nPlease enter your choice: "))
+            print()
 
-    if authenticate(db, username, password):
-        print("Login Successful!")
-    else:
-        print("Login Unsuccessful!")
+            if choice == 0:
+                break
 
-    db.close()
+            if choice == 1:
+                username = input("Enter Username:\n").strip()
+                password = input("Enter Password:\n").strip()
+                user_type = input("Enter User Type (StandardClient, PremiumClient, Teller, FinancialAdvisor, FinancialPlanner):\n").strip()
+                balance = float(input("Enter Balance (if applicable):\n").strip()) if user_type in ['StandardClient', 'PremiumClient'] else 0.0
+
+                user_classes = {
+                    'StandardClient': StandardClient,
+                    'PremiumClient': PremiumClient,
+                    'Teller': Teller,
+                    'FinancialAdvisor': FinancialAdvisor,
+                    'FinancialPlanner': FinancialPlanner
+                }
+
+                if user_type in user_classes:
+                    if insert_user(users, username, password, user_classes[user_type], balance):
+                        print("User successfully created!")
+                else:
+                    print("Invalid user type.")
+
+            elif choice == 2:
+                username = input("Enter Username:\n").strip()
+                password = input("Enter Password:\n").strip()
+
+                if authenticate(users, username, password):
+                    user_data = users[username]
+                    role_type = user_data['role']
+                    if role_type == 'StandardClient':
+                        user = StandardClient(username, user_data['hashed_password'])
+                    elif role_type == 'PremiumClient':
+                        user = PremiumClient(username, user_data['hashed_password'])
+                    elif role_type == 'Teller':
+                        user = Teller(username, user_data['hashed_password'])
+                    elif role_type == 'FinancialAdvisor':
+                        user = FinancialAdvisor(username, user_data['hashed_password'])
+                    elif role_type == 'FinancialPlanner':
+                        user = FinancialPlanner(username, user_data['hashed_password'])
+                    just_invest_ui(user)
+                    print("Login Successful!")
+                else:
+                    print("Login Unsuccessful!")
+
+            else:
+                print("\nInvalid choice. Please try again.")
+
+        except ValueError:
+            print("\nInvalid input. Please enter a number.")
 
 if __name__ == "__main__":
     main()
