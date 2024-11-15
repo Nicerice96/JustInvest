@@ -45,6 +45,9 @@ class User:
 
     def has_permission(self, permission: Permissions) -> bool:
         return permission in self.role.permissions
+    
+    def add_permissions(self, permissions):
+        self.role.permissions.extend(permissions)
 
     def get_username(self) -> str:
         return self.username
@@ -328,7 +331,7 @@ def just_invest_ui(user: User, users: dict):
         if user.has_permission(Permissions.TELLER_ACCESS):
             print("8. Teller-specific options")
         if isinstance(user, FinancialAdvisor) or isinstance(user, FinancialPlanner) or isinstance(user, Teller):
-            print("9. Select a client to interact with")
+            print("9. Select a client to interact with (YOU MUST SELECT A CLIENT BEFORE PERFORMING THE ABOVE OPERATIONS)")
         print("0. Exit")
 
         try:
@@ -348,9 +351,11 @@ def just_invest_ui(user: User, users: dict):
                     
                     if selected_role == 'StandardClient':
                         selected_client = StandardClient(selected_client_username, selected_hashed_password)
+                        selected_client.add_permissions(user.role.permissions)
                         just_invest_ui(selected_client, users)
                     elif selected_role == 'PremiumClient':
                         selected_client = PremiumClient(selected_client_username, selected_hashed_password)
+                        selected_client.add_permissions(user.role.permissions)
                         just_invest_ui(selected_client, users)
                     else:
                         print("\nSelected client has an unknown role. Returning to menu.")
