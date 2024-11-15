@@ -70,7 +70,7 @@ class TestUserManagement(unittest.TestCase):
         self.assertTrue(user.has_permission(Permissions.CLIENT_VIEW_BALANCE))
         self.assertTrue(user.has_permission(Permissions.MODIFY_CLIENT_PORTFOLIO))
 
-        # Freeze time to 10 AM (inside business hours) for Teller test
+        # Freeze time to 10 AM (inside 9-5) for Teller test
         with freeze_time("2024-11-15 10:00:00"):
             user = Teller("testuser", PasswordManager.hash_password("StrongP@ssw0rd"))
             self.assertTrue(user.has_permission(Permissions.TELLER_ACCESS))
