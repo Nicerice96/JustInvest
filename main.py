@@ -1,11 +1,14 @@
 import bcrypt
-import secrets
-import re
 from enum import Enum
 from typing import List, Optional, Tuple
 from datetime import datetime
 
 class Permissions(Enum):
+    """The various Permissons available in the justInvest System 
+
+    Args:
+        Enum (_type_): _description_
+    """
     CLIENT_VIEW_BALANCE = 1
     VIEW_CLIENT_PORTFOLIO = 2
     VIEW_CONTACT_DETAILS_FA = 3
@@ -16,11 +19,18 @@ class Permissions(Enum):
     TELLER_ACCESS = 8
 
 class Role:
+    """A class simply to hold a given member of the justInvest System's role and their respective permissions
+    """
     def __init__(self, role_type: str, permissions: List[Permissions]):
         self.role_type = role_type
         self.permissions = permissions
 
 class PasswordManager:
+    """hashing scheme for passwords
+
+    Returns:
+        _type_: _description_
+    """
     @staticmethod
     def hash_password(password: str) -> bytes:
         """Hash a password with salt using bcrypt."""
@@ -32,6 +42,8 @@ class PasswordManager:
         return bcrypt.checkpw(password.encode(), stored_hash)
 
 class User:
+    """User default class
+    """
     def __init__(self, username: str, hashed_password: bytes, role: Role):
         self.username = username
         self.hashed_password = hashed_password
@@ -48,6 +60,10 @@ class User:
     
     def add_permissions(self, permissions):
         self.role.permissions.extend(permissions)
+        
+    def revoke_permissions(self, permissions):
+        print(f"revoked permissions: ${permissions}")
+        self.role.permissions.remove(permissions)
 
     def get_username(self) -> str:
         return self.username
@@ -108,6 +124,11 @@ class User:
             return start_time <= current_time <= end_time
         
 class StandardClient(User):
+    """Standard Client of the justInvest System
+
+    Args:
+        User (_type_): _description_
+    """
     def __init__(self, username: str, hashed_password: bytes, balance: float = 0.0):
         super().__init__(
             username,
@@ -124,6 +145,11 @@ class StandardClient(User):
         self.balance = balance
 
 class PremiumClient(User):
+    """Premium Client of the justInvest system
+
+    Args:
+        User (_type_): _description_
+    """
     def __init__(self, username: str, hashed_password: bytes, balance: float = 0.0):
         super().__init__(
             username,
@@ -141,6 +167,11 @@ class PremiumClient(User):
         self.balance = balance
 
 class Teller(User):
+    """Teller for the justInvest system
+
+    Args:
+        User (_type_): _description_
+    """
     def __init__(self, username: str, hashed_password: bytes):
         super().__init__(
             username,
@@ -154,6 +185,11 @@ class Teller(User):
     
 
 class FinancialAdvisor(User):
+    """FinancialAdvisor of the justInvestSystem
+
+    Args:
+        User (_type_): _description_
+    """
     def __init__(self, username: str, hashed_password: bytes):
         super().__init__(
             username,
@@ -171,6 +207,11 @@ class FinancialAdvisor(User):
         )
 
 class FinancialPlanner(User):
+    """Financial Planner of the justInvest system
+
+    Args:
+        User (_type_): _description_
+    """
     def __init__(self, username: str, hashed_password: bytes):
         super().__init__(
             username,
@@ -188,6 +229,14 @@ class FinancialPlanner(User):
             )
         )
 def load_common_passwords(filename: str) -> set:
+    """load common password file (10k-most-common.txt)
+
+    Args:
+        filename (str): _description_
+
+    Returns:
+        set: _description_
+    """
     try:
         with open(filename, 'r') as file:
             common_passwords = set(line.strip().lower() for line in file.readlines())
@@ -200,6 +249,14 @@ common_passwords = load_common_passwords('10k-most-common.txt')
 
 
 def load_users_from_file(filename: str) -> dict:
+    """loads the main password file, passwd.txt
+
+    Args:
+        filename (str): _description_
+
+    Returns:
+        dict: _description_
+    """
     try:
         users = {}
         with open(filename, 'r') as file:
@@ -219,12 +276,30 @@ def load_users_from_file(filename: str) -> dict:
         return {}
 
 def save_users_to_file(users: dict, filename: str) -> None:
+    """save to passwd.txt
+
+    Args:
+        users (dict): _description_
+        filename (str): _description_
+    """
     with open(filename, 'w') as file:
         for username, user_data in users.items():
             portfolio = ';'.join(user_data['portfolio']) if user_data['portfolio'] else ''
             file.write(f"{username},{user_data['hashed_password'].decode()},{user_data['role']},{user_data['balance']},{portfolio}\n")
 
 def insert_user(users: dict, username: str, password: str, user_class, balance: float = 0.0) -> bool:
+    """inserts a user into passwd.txt
+
+    Args:
+        users (dict): _description_
+        username (str): _description_
+        password (str): _description_
+        user_class (_type_): _description_
+        balance (float, optional): _description_. Defaults to 0.0.
+
+    Returns:
+        bool: _description_
+    """
     common_passwords = load_common_passwords('10k-most-common.txt')
     if password_LUDS(password, common_passwords):
         try:
@@ -251,6 +326,16 @@ def insert_user(users: dict, username: str, password: str, user_class, balance: 
     return False
 
 def authenticate(users: dict, username: str, password: str) -> bool:
+    """authentication method for a given user
+
+    Args:
+        users (dict): _description_
+        username (str): _description_
+        password (str): _description_
+
+    Returns:
+        bool: _description_
+    """
     try:
         user_data = users.get(username)
         if user_data:
@@ -263,7 +348,15 @@ def authenticate(users: dict, username: str, password: str) -> bool:
         return False
 
 def password_LUDS(password: str, common_passwords: set) -> bool:
-    """Validate password meets Length, Uppercase, Digit, Symbol requirements and is not a common password"""
+    """password creation validation, must be in LUDS format and NOT common
+
+    Args:
+        password (str): _description_
+        common_passwords (set): _description_
+
+    Returns:
+        bool: _description_
+    """
     if not (8 <= len(password) <= 12):
         print("Password must be between 8 and 12 characters (inclusive).")
         return False
@@ -293,7 +386,14 @@ def password_LUDS(password: str, common_passwords: set) -> bool:
     return True
 
 def display_clients(users: dict):
-    """Displays a list of all clients for the Financial Advisor to choose from."""
+    """display all clients 
+
+    Args:
+        users (dict): _description_
+
+    Returns:
+        _type_: _description_
+    """
     print("\nAvailable Clients:")
     print("------------------")
     client_list = [username for username, user_data in users.items() if user_data['role'] in ['StandardClient', 'PremiumClient']]
@@ -321,6 +421,12 @@ def display_clients(users: dict):
         return None
 
 def just_invest_ui(user: User, users: dict):
+    """The main UI for justInvest
+
+    Args:
+        user (User): _description_
+        users (dict): _description_
+    """
     running = True
     selected_client_username = None
     selected_client_data = None
@@ -370,12 +476,14 @@ def just_invest_ui(user: User, users: dict):
                                 selected_client = StandardClient(selected_client_username, selected_hashed_password)
                                 selected_client.add_permissions(user.role.permissions)
                                 just_invest_ui(selected_client, users)
+                                selected_client.revoke_permissions(user.role.permissions)
                             else:
                                 print("Teller Access Denied!")
                         else:     
                             selected_client = StandardClient(selected_client_username, selected_hashed_password)
                             selected_client.add_permissions(user.role.permissions)
                             just_invest_ui(selected_client, users)
+                            selected_client.revoke_permissions(user.role.permissions)
                     elif selected_role == 'PremiumClient':
                         if (isinstance(user, Teller)):
                             if(user.is_within_business_hours()):
@@ -383,12 +491,14 @@ def just_invest_ui(user: User, users: dict):
                                 selected_client = StandardClient(selected_client_username, selected_hashed_password)
                                 selected_client.add_permissions(user.role.permissions)
                                 just_invest_ui(selected_client, users)
+                                selected_client.revoke_permissions(user.role.permissions)
                             else:
                                 print("Teller Access Denied!")
                         else:
                             selected_client = PremiumClient(selected_client_username, selected_hashed_password)
                             selected_client.add_permissions(user.role.permissions)
                             just_invest_ui(selected_client, users)
+                            selected_client.revoke_permissions(user.role.permissions)
                     else:
                         print("\nSelected client has an unknown role. Returning to menu.")
                         continue
@@ -420,11 +530,16 @@ def just_invest_ui(user: User, users: dict):
                 print("\nPlease select a client to interact with first.")
 
         except ValueError:
-            print("\nInvalid input. Please enter a number.")
+            print("\nExiting.")
 
     print("\nExiting the justInvest System. Goodbye!")
     
 def create_sample_clients(users):
+    """creation of sample clients
+
+    Args:
+        users (_type_): _description_
+    """
     sample_clients = [
         ("john_doe", "P@ssw0rd1", StandardClient, 1000.0),
         ("jane_smith", "Str0ngP@ss2", PremiumClient, 5000.0),
@@ -440,6 +555,8 @@ def create_sample_clients(users):
 
 
 def main():
+    """main function, includes entry UI
+    """
     
     
     users = load_users_from_file('passwd.txt')
@@ -513,5 +630,6 @@ def main():
         except ValueError:
             print("\nInvalid input. Please enter a number.")
 
+#main funciton call
 if __name__ == "__main__":
     main()
