@@ -1,1 +1,0 @@
-testuser,$2b$12$p.CNl59BMQ5KATYPtexGOOfbKgOAUCNoGxquRVputRyEg99OOY6kW, StandardClient
