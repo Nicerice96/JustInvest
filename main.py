@@ -3,7 +3,10 @@ from enum import Enum
 from typing import List, Optional, Tuple
 from datetime import datetime
 
+import os
 
+#in a perfect scenario this would be saved in an env for example (but this is an assignment so....)
+pepper = os.environ.get('PASSWORD_PEPPER', '102030020120300120120301203110203')
 class Permissions(Enum):
     """The various Permissons available in the justInvest System 
 
@@ -34,14 +37,17 @@ class PasswordManager:
     """
     @staticmethod
     def hash_password(password: str) -> bytes:
-        """Hash a password with salt using bcrypt."""
-        return bcrypt.hashpw(password.encode(), bcrypt.gensalt())
+        """Hash a password with salt and pepper using bcrypt."""
+        # Combine the password with the pepper
+        password_with_pepper = (password + pepper).encode()
+        return bcrypt.hashpw(password_with_pepper, bcrypt.gensalt())
 
     @staticmethod
     def verify_password(password: str, stored_hash: bytes) -> bool:
         """Verify a password against stored hash."""
-        return bcrypt.checkpw(password.encode(), stored_hash)
-
+        # Combine the password with the pepper
+        password_with_pepper = (password + pepper).encode()
+        return bcrypt.checkpw(password_with_pepper, stored_hash)
 class User:
     """User default class
     """
@@ -342,6 +348,13 @@ def authenticate(users: dict, username: str, password: str) -> bool:
         if user_data:
             stored_hash = user_data['hashed_password']
             if PasswordManager.verify_password(password, stored_hash):
+                return True
+            else:
+                # If the password does not match, it might be because the password was hashed without the pepper.
+                # Rehash the password with the pepper and update the stored hash.
+                new_hash = PasswordManager.hash_password(password)
+                users[username]['hashed_password'] = new_hash
+                save_users_to_file(users, 'passwd.txt')
                 return True
         return False
     except Exception as e:
