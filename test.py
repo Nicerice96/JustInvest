@@ -1,9 +1,9 @@
 import unittest
+from freezegun import freeze_time
 from main import PasswordManager, password_LUDS, insert_user, load_users_from_file, save_users_to_file, Permissions
 from main import StandardClient, PremiumClient, Teller, FinancialAdvisor, FinancialPlanner
 
 class TestUserManagement(unittest.TestCase):
-
     def test_password_hashing(self):
         password = "StrongP@ssw0rd"
         hashed_password = PasswordManager.hash_password(password)
@@ -55,7 +55,6 @@ class TestUserManagement(unittest.TestCase):
         }
         save_users_to_file(users, 'passwd.txt')
         loaded_users = load_users_from_file('passwd.txt')
-        # Ensure consistent spacing
         for user in loaded_users.values():
             user['role'] = user['role'].strip()
         self.assertEqual(users, loaded_users)
@@ -71,9 +70,10 @@ class TestUserManagement(unittest.TestCase):
         self.assertTrue(user.has_permission(Permissions.CLIENT_VIEW_BALANCE))
         self.assertTrue(user.has_permission(Permissions.MODIFY_CLIENT_PORTFOLIO))
 
-        # Teller
-        user = Teller("testuser", PasswordManager.hash_password("StrongP@ssw0rd"))
-        self.assertTrue(user.has_permission(Permissions.TELLER_ACCESS))
+        # Freeze time to 10 AM (inside business hours) for Teller test
+        with freeze_time("2024-11-15 10:00:00"):
+            user = Teller("testuser", PasswordManager.hash_password("StrongP@ssw0rd"))
+            self.assertTrue(user.has_permission(Permissions.TELLER_ACCESS))
 
         # Financial Advisor
         user = FinancialAdvisor("testuser", PasswordManager.hash_password("StrongP@ssw0rd"))
