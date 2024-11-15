@@ -389,9 +389,7 @@ def main():
 
         except ValueError:
             print("\nInvalid input. Please enter a number.")
-            else:
-                print("\nInvalid choice. Please try again.")
-
+           
         except ValueError:
             print("\nInvalid input. Please enter a number.")
 
