@@ -1,2 +1,5 @@
-Zarif,$2b$12$h8QRJKcojJ6ThkpodeAmFufHavJAVro/hAz4wxgvUqRC9pGyFZrIK,  StandardClient
-testuser,$2b$12$.tmidNBxT93bxVV/qhT6JOsAjNQEPnX0TJqQCsX/niDNw7DgvlVnG, StandardClient
+Zarif,$2b$12$SlvIJm005DUukntsk6QEpO.nSyXrlVLU0Os5HTuDEssensaxwizJW, StandardClient
+testuser,$2b$12$pUh/N.llIk0NKhil/jbADeBaPb2RiKFBnQzM6piElkobQ1LQgJPcS,     StandardClient
+premiumuser,$2b$12$MqalfUdrSnMnti3EecOnrOg5bvTc4daq4gdaDVsd8c6be401mH.PS,    PremiumClient
+telleruser,$2b$12$Ap90VoiFxzCC6n/YUxvQJ.Jcquc/b/QxmYIAQUAku0NRngcbHBaXO,   Teller
+fauser,$2b$12$NIDuzM60xzLoyWhVEOA/i.r1EhP7p2zyLoVZ.YQNFp1noGUGULV3W,  FinancialAdvisor

@@ -187,18 +187,6 @@ def insert_user(users: dict, username: str, password: str, user_class, balance: 
             return False
     return False
 
-def authenticate(users: dict, username: str, password: str) -> bool:
-    try:
-        user_data = users.get(username)
-        if user_data:
-            stored_hash = user_data['hashed_password']
-            if PasswordManager.verify_password(password, stored_hash):
-                return True
-        return False
-    except Exception as e:
-        print(f"Error during authentication: {e}")
-        return False
-
 def password_LUDS(password: str, username: str) -> bool:
     """Validate password meets Length, Uppercase, Digit, Symbol requirements"""
     if not (8 <= len(password) <= 12):
@@ -224,29 +212,17 @@ def password_LUDS(password: str, username: str) -> bool:
 
     return all([has_upper, has_lower, has_digit, has_special])
 
-def just_invest_ui(user: User):
-    running = True
-    while running:
-        print("\njustInvest System:")
-        print("-----------------------------")
-        print(f"Operations Available to {user.get_username()}:")
+def main():
+    users = load_users_from_file('passwd.txt')
 
-        if user.has_permission(Permissions.CLIENT_VIEW_BALANCE):
-            print("1. View account balance")
-        if user.has_permission(Permissions.VIEW_CLIENT_PORTFOLIO):
-            print("2. View investment portfolio")
-        if user.has_permission(Permissions.MODIFY_CLIENT_PORTFOLIO):
-            print("3. Modify investment portfolio")
-        if user.has_permission(Permissions.VIEW_CONTACT_DETAILS_FA):
-            print("4. View Financial Advisor contact details")
-        if user.has_permission(Permissions.VIEW_CONTACT_DETAILS_FP):
-            print("5. View Financial Planner contact details")
-        if user.has_permission(Permissions.VIEW_MONEY_MARKET_INSTRUMENTS):
-            print("6. View money market instruments")
-        if user.has_permission(Permissions.VIEW_PRIVATE_CONSUMER_INSTRUMENTS):
-            print("7. View private consumer instruments")
-        if user.has_permission(Permissions.TELLER_ACCESS):
-            print("8. Teller-specific options")
+    while True:
+        print("\nUser Registration Menu:")
+        print("---------------------------")
+        print("1. Register as Standard Client")
+        print("2. Register as Premium Client")
+        print("3. Register as Teller")
+        print("4. Register as Financial Advisor")
+        print("5. Register as Financial Planner")
         print("0. Exit")
 
         try:
@@ -254,67 +230,33 @@ def just_invest_ui(user: User):
             print()
 
             if choice == 0:
-                running = False
-                continue
+                break
 
-            actions = {
-                1: (Permissions.CLIENT_VIEW_BALANCE, lambda: print(f"\nCurrent balance: ${user.balance:.2f}\n")),
-                2: (Permissions.VIEW_CLIENT_PORTFOLIO, lambda: print("\nViewing portfolio...\n")),
-                3: (Permissions.MODIFY_CLIENT_PORTFOLIO, lambda: print("\nModifying investment portfolio...\n")),
-                4: (Permissions.VIEW_CONTACT_DETAILS_FA, lambda: print("\nViewing Financial Advisor contact details...\n")),
-                5: (Permissions.VIEW_CONTACT_DETAILS_FP, lambda: print("\nViewing Financial Planner contact details...\n")),
-                6: (Permissions.VIEW_MONEY_MARKET_INSTRUMENTS, lambda: print("\nViewing money market instruments...\n")),
-                7: (Permissions.VIEW_PRIVATE_CONSUMER_INSTRUMENTS, lambda: print("\nViewing private consumer instruments...\n")),
-                8: (Permissions.TELLER_ACCESS, lambda: print("\nAccessing Teller-specific options...\n"))
+            user_classes = {
+                1: StandardClient,
+                2: PremiumClient,
+                3: Teller,
+                4: FinancialAdvisor,
+                5: FinancialPlanner
             }
 
-            if choice in actions:
-                permission, action = actions[choice]
-                if user.has_permission(permission):
-                    action()
+            if choice in user_classes:
+                username = input("Enter your username: ")
+                password = input("Enter your password: ")
+                balance = 0.0
+
+                if choice in (1, 2):
+                    balance = float(input("Enter your initial balance: "))
+
+                if insert_user(users, username, password, user_classes[choice], balance):
+                    print("User successfully created!")
                 else:
-                    print("\nYou do not have permission for this action.")
+                    print("Failed to create user.")
             else:
-                print("\nInvalid choice. Please try again.")
+                print("Invalid choice. Please try again.")
 
         except ValueError:
-            print("\nInvalid input. Please enter a number.")
-
-    print("\nExiting the justInvest System. Goodbye!")
-
-def main():
-    users = load_users_from_file('passwd.txt')
-
-    username = "testuser"
-    password = "P@ssw0rd"
-    user_type = "StandardClient"
-    balance = 0.0
-
-    user_classes = {
-        'StandardClient': StandardClient,
-        'PremiumClient': PremiumClient,
-        'Teller': Teller,
-        'FinancialAdvisor': FinancialAdvisor,
-        'FinancialPlanner': FinancialPlanner
-    }
-
-    if user_type in user_classes:
-        if insert_user(users, username, password, user_classes[user_type], balance):
-            print("User successfully created!")
-
-    
-    users = load_users_from_file('passwd.txt')
-
-    
-    if username in users:
-        user_data = users[username]
-        stored_hash = user_data['hashed_password']
-        if PasswordManager.verify_password(password, stored_hash):
-            print(f"User {username} retrieved and password verified successfully.")
-        else:
-            print(f"Password verification for user {username} failed.")
-    else:
-        print(f"User {username} not found in the passwd.txt file.")
+            print("Invalid input. Please enter a number.")
 
 if __name__ == "__main__":
     main()
