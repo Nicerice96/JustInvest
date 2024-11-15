@@ -8,6 +8,7 @@ you may run the application via on the VM via:
 
 ## TERMINAL:
 
+
 ```
 python3 main.py
 ```
