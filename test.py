@@ -1,5 +1,5 @@
 import unittest
-from main import *  # Import all necessary classes and functions from your module
+from main import * 
 
 class TestJustInvestSystem(unittest.TestCase):
 
