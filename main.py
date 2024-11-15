@@ -60,6 +60,7 @@ class User:
             return self.balance
         else:
             return "You do not have permission to view the balance."
+        
 
     def view_portfolio(self):
         if self.has_permission(Permissions.VIEW_CLIENT_PORTFOLIO):
@@ -98,6 +99,14 @@ class User:
     def get_private_consumer_instruments(self):
         if (self.has_permission(Permissions.VIEW_PRIVATE_CONSUMER_INSTRUMENTS)):
             return self.private_consumer_instruments
+        
+    def is_within_business_hours(self) -> bool:
+        if (self.has_permission(Permissions.TELLER_ACCESS)):
+            current_time = datetime.now().time()
+            start_time = datetime.strptime("09:00", "%H:%M").time()
+            end_time = datetime.strptime("17:00", "%H:%M").time()
+            return start_time <= current_time <= end_time
+        
 class StandardClient(User):
     def __init__(self, username: str, hashed_password: bytes, balance: float = 0.0):
         super().__init__(
@@ -138,22 +147,11 @@ class Teller(User):
             hashed_password,
             Role(
                 "Teller",
-                [Permissions.TELLER_ACCESS]
+                [Permissions.TELLER_ACCESS, 
+                 ]
             )
         )
-
-    def is_within_business_hours(self) -> bool:
-        current_time = datetime.now().time()
-        start_time = datetime.strptime("09:00", "%H:%M").time()
-        end_time = datetime.strptime("17:00", "%H:%M").time()
-        return start_time <= current_time <= end_time
-
-    def has_permission(self, permission: Permissions) -> bool:
-        if permission == Permissions.TELLER_ACCESS:
-            if not self.is_within_business_hours():
-                print("Access denied. Teller access is only allowed during business hours (9:00am to 5:00pm).")
-                return False
-        return super().has_permission(permission)
+    
 
 class FinancialAdvisor(User):
     def __init__(self, username: str, hashed_password: bytes):
@@ -189,6 +187,17 @@ class FinancialPlanner(User):
                 ]
             )
         )
+def load_common_passwords(filename: str) -> set:
+    try:
+        with open(filename, 'r') as file:
+            common_passwords = set(line.strip().lower() for line in file.readlines())
+            return common_passwords
+    except FileNotFoundError:
+        print(f"File {filename} not found.")
+        return set()
+
+common_passwords = load_common_passwords('10k-most-common.txt')
+
 
 def load_users_from_file(filename: str) -> dict:
     try:
@@ -239,6 +248,7 @@ def insert_user(users: dict, username: str, password: str, user_class, balance: 
             print(f"Error inserting user: {e}")
             return False
     return False
+
 def authenticate(users: dict, username: str, password: str) -> bool:
     try:
         user_data = users.get(username)
@@ -276,6 +286,7 @@ def password_LUDS(password: str, username: str) -> bool:
         return False
 
     return True
+
 def display_clients(users: dict):
     """Displays a list of all clients for the Financial Advisor to choose from."""
     print("\nAvailable Clients:")
@@ -328,10 +339,8 @@ def just_invest_ui(user: User, users: dict):
             print("6. View money market instruments")
         if user.has_permission(Permissions.VIEW_PRIVATE_CONSUMER_INSTRUMENTS):
             print("7. View private consumer instruments")
-        if user.has_permission(Permissions.TELLER_ACCESS):
-            print("8. Teller-specific options")
         if isinstance(user, FinancialAdvisor) or isinstance(user, FinancialPlanner) or isinstance(user, Teller):
-            print("9. Select a client to interact with (YOU MUST SELECT A CLIENT BEFORE PERFORMING THE ABOVE OPERATIONS)")
+            print("9. Select a client to interact with !!(YOU MUST SELECT A CLIENT BEFORE PERFORMING THE ABOVE OPERATIONS)!!")
         print("0. Exit")
 
         try:
@@ -350,13 +359,31 @@ def just_invest_ui(user: User, users: dict):
                     selected_hashed_password = selected_client_data['hashed_password']
                     
                     if selected_role == 'StandardClient':
-                        selected_client = StandardClient(selected_client_username, selected_hashed_password)
-                        selected_client.add_permissions(user.role.permissions)
-                        just_invest_ui(selected_client, users)
+                        if (isinstance(user, Teller)):
+                            if(user.is_within_business_hours()):
+                                print("Teller Access Granted!")
+                                selected_client = StandardClient(selected_client_username, selected_hashed_password)
+                                selected_client.add_permissions(user.role.permissions)
+                                just_invest_ui(selected_client, users)
+                            else:
+                                print("Teller Access Denied!")
+                        else:     
+                            selected_client = StandardClient(selected_client_username, selected_hashed_password)
+                            selected_client.add_permissions(user.role.permissions)
+                            just_invest_ui(selected_client, users)
                     elif selected_role == 'PremiumClient':
-                        selected_client = PremiumClient(selected_client_username, selected_hashed_password)
-                        selected_client.add_permissions(user.role.permissions)
-                        just_invest_ui(selected_client, users)
+                        if (isinstance(user, Teller)):
+                            if(user.is_within_business_hours()):
+                                print("Teller Access Granted!")
+                                selected_client = StandardClient(selected_client_username, selected_hashed_password)
+                                selected_client.add_permissions(user.role.permissions)
+                                just_invest_ui(selected_client, users)
+                            else:
+                                print("Teller Access Denied!")
+                        else:
+                            selected_client = PremiumClient(selected_client_username, selected_hashed_password)
+                            selected_client.add_permissions(user.role.permissions)
+                            just_invest_ui(selected_client, users)
                     else:
                         print("\nSelected client has an unknown role. Returning to menu.")
                         continue
@@ -367,14 +394,13 @@ def just_invest_ui(user: User, users: dict):
             if selected_client_username and selected_client_data:
                 # Perform actions on the selected client
                 actions = {
-                    1: (Permissions.CLIENT_VIEW_BALANCE, lambda: print(f"Current balance: ${selected_client.balance:.2f}\n")),
+                    1: (Permissions.CLIENT_VIEW_BALANCE, lambda: print(f"Current balance: ${selected_client.view_balance()}\n")),
                     2: (Permissions.VIEW_CLIENT_PORTFOLIO, lambda: print(f"Portfolio: {selected_client.view_portfolio()}\n")),
                     3: (Permissions.MODIFY_CLIENT_PORTFOLIO, lambda: selected_client.modify_portfolio()),
                     4: (Permissions.VIEW_CONTACT_DETAILS_FA, lambda: print(f"Financial Advisor: {selected_client.get_financial_advisor()}")),
                     5: (Permissions.VIEW_CONTACT_DETAILS_FP, lambda: print(f"Financial Planner: {selected_client.get_financial_planner()}")),
                     6: (Permissions.VIEW_MONEY_MARKET_INSTRUMENTS, lambda: print(f"Money Market Instruments: {selected_client.get_money_market_instruments()}")),
                     7: (Permissions.VIEW_PRIVATE_CONSUMER_INSTRUMENTS, lambda: print(f"Private Consumer Instruments: {selected_client.get_private_consumer_instruments()}")),
-                    8: (Permissions.TELLER_ACCESS, lambda: print("\nAccessing Teller-specific options...\n"))
                 }
 
                 if choice in actions:
