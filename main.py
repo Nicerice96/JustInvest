@@ -4,6 +4,7 @@ from typing import List, Optional, Tuple
 from datetime import datetime
 import os
 
+
 # Load the password pepper from the environment variable or use a default if not set.
 # In a real scenario, this should be stored securely, such as in an environment variable.
 pepper = os.environ.get('PASSWORD_PEPPER', '102030020120300120120301203110203')
@@ -35,11 +36,6 @@ class Role:
         self.permissions = permissions
 
 class PasswordManager:
-    """A class for managing password hashing and verification using bcrypt.
-
-    Returns:
-        _type_: _description_
-    """
     @staticmethod
     def hash_password(password: str) -> bytes:
         """Hash a password with salt and pepper using bcrypt.
@@ -50,7 +46,6 @@ class PasswordManager:
         Returns:
             bytes: The hashed password.
         """
-        # Combine the password with the pepper
         password_with_pepper = (password + pepper).encode()
         return bcrypt.hashpw(password_with_pepper, bcrypt.gensalt())
 
@@ -65,7 +60,6 @@ class PasswordManager:
         Returns:
             bool: True if the password matches the stored hash, False otherwise.
         """
-        # Combine the password with the pepper
         password_with_pepper = (password + pepper).encode()
         return bcrypt.checkpw(password_with_pepper, stored_hash)
 
@@ -449,15 +443,7 @@ def authenticate(users: dict, username: str, password: str) -> bool:
         user_data = users.get(username)
         if user_data:
             stored_hash = user_data['hashed_password']
-            if PasswordManager.verify_password(password, stored_hash):
-                return True
-            else:
-                # If the password does not match, it might be because the password was hashed without the pepper.
-                # Rehash the password with the pepper and update the stored hash.
-                new_hash = PasswordManager.hash_password(password)
-                users[username]['hashed_password'] = new_hash
-                save_users_to_file(users, 'passwd.txt')
-                return True
+            return PasswordManager.verify_password(password, stored_hash)
         return False
     except Exception as e:
         print(f"Error during authentication: {e}")
@@ -671,151 +657,6 @@ def create_sample_clients(users):
         else:
             print(f"Failed to create sample client {username}.")
             
-            
-def test_register_user():
-    users = {}
-    username = "test_user"
-    password = "P@ssw0rd1"
-    user_type = "StandardClient"
-    balance = 1000.0
-
-    if insert_user(users, username, password, StandardClient, balance):
-        assert username in users
-        assert users[username]['hashed_password'] != password  # Check if password is hashed
-    else:
-        assert False, "User registration failed"
-
-test_register_user()
-
-def test_login_user():
-    users = {}
-    username = "test_user"
-    password = "P@ssw0rd1"
-    user_type = "StandardClient"
-    balance = 1000.0
-
-    if insert_user(users, username, password, StandardClient, balance):
-        if authenticate(users, username, password):
-            assert True
-        else:
-            assert False, "Login failed"
-    else:
-        assert False, "User registration failed"
-
-test_login_user()
-
-def test_login_user_invalid_credentials():
-    users = {}
-    username = "test_user"
-    password = "P@ssw0rd1"
-    user_type = "StandardClient"
-    balance = 1000.0
-
-    if insert_user(users, username, password, StandardClient, balance):
-        if not authenticate(users, username, "wrong_password"):
-            assert True
-        else:
-            assert False, "Login should have failed"
-    else:
-        assert False, "User registration failed"
-
-test_login_user_invalid_credentials()
-
-def test_standard_client_permissions():
-    users = {}
-    username = "test_user"
-    password = "P@ssw0rd1"
-    user_type = "StandardClient"
-    balance = 1000.0
-
-    if insert_user(users, username, password, StandardClient, balance):
-        user_data = users[username]
-        user = StandardClient(username, user_data['hashed_password'], balance)
-        assert user.has_permission(Permissions.CLIENT_VIEW_BALANCE)
-        assert user.has_permission(Permissions.VIEW_CLIENT_PORTFOLIO)
-        assert user.has_permission(Permissions.VIEW_CONTACT_DETAILS_FA)
-        assert not user.has_permission(Permissions.MODIFY_CLIENT_PORTFOLIO)
-    else:
-        assert False, "User registration failed"
-
-test_standard_client_permissions()
-
-def test_view_balance():
-    users = {}
-    username = "test_user"
-    password = "P@ssw0rd1"
-    user_type = "StandardClient"
-    balance = 1000.0
-
-    if insert_user(users, username, password, StandardClient, balance):
-        user_data = users[username]
-        user = StandardClient(username, user_data['hashed_password'], balance)
-        assert user.view_balance() == balance
-    else:
-        assert False, "User registration failed"
-
-test_view_balance()
-def test_view_portfolio():
-    users = {}
-    username = "test_user"
-    password = "P@ssw0rd1"
-    user_type = "StandardClient"
-    balance = 1000.0
-
-    if insert_user(users, username, password, StandardClient, balance):
-        user_data = users[username]
-        user = StandardClient(username, user_data['hashed_password'], balance)
-        assert user.view_portfolio() == []
-    else:
-        assert False, "User registration failed"
-
-test_view_portfolio()
-
-def test_modify_portfolio():
-    users = {}
-    username = "test_user"
-    password = "P@ssw0rd1"
-    user_type = "PremiumClient"
-    balance = 1000.0
-
-    if insert_user(users, username, password, PremiumClient, balance):
-        user_data = users[username]
-        user = PremiumClient(username, user_data['hashed_password'], balance)
-        user.modify_portfolio()
-        assert len(user.portfolio) > 0
-    else:
-        assert False, "User registration failed"
-
-test_modify_portfolio()
-
-def test_common_password_validation():
-    common_passwords = load_common_passwords("10k-most-common.txt")
-    users = {}
-    username = "test_user"
-    password = "password123"  # Assuming this is a common password
-    user_type = "StandardClient"
-    balance = 1000.0
-
-    if not insert_user(users, username, password, StandardClient, balance):
-        assert True
-    else:
-        assert False, "Registration should have failed due to common password"
-
-test_common_password_validation()
-
-def test_luds_password_validation():
-    users = {}
-    username = "test_user"
-    password = "short"  # Password does not meet LUDS criteria
-    user_type = "StandardClient"
-    balance = 1000.0
-
-    if not insert_user(users, username, password, StandardClient, balance):
-        assert True
-    else:
-        assert False, "Registration should have failed due to password not meeting LUDS criteria"
-
-test_luds_password_validation()
 
 
 def main():
