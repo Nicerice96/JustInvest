@@ -4,6 +4,7 @@ import re
 from enum import Enum
 from typing import List, Optional, Tuple
 from datetime import datetime
+import os
 
 class Permissions(Enum):
     CLIENT_VIEW_BALANCE = 1
@@ -38,6 +39,7 @@ class User:
         self.role = role
         self.balance = 0.0
         self.portfolio = []
+        self.financial_advisor = None
 
     def has_permission(self, permission: Permissions) -> bool:
         return permission in self.role.permissions
@@ -47,6 +49,28 @@ class User:
 
     def get_hashed_password(self) -> bytes:
         return self.hashed_password
+    
+    def view_portfolio(self):
+        if self.has_permission(Permissions.CLIENT_VIEW_BALANCE):
+            return self.portfolio
+        else:
+            return "You do not have permission to view the portfolio."
+
+    def modify_portfolio(self):
+        if self.has_permission(Permissions.MODIFY_CLIENT_PORTFOLIO):
+            print("Enter an Investment\n")
+            input_val = input("\nPlease enter your Investment: ")
+            self.portfolio.append(input_val)
+        else:
+            return "You do not have permission to modify the portfolio."
+        
+    def set_financial_advisor(self, financial_advisor):
+        if(self.has_permission(Permissions.VIEW_CONTACT_DETAILS_FA)):
+            self.financial_advisor = financial_advisor
+
+    def get_financial_advisor(self):
+        if(self.has_permission(Permissions.VIEW_CONTACT_DETAILS_FA)):
+            return self.financial_advisor
 
 class StandardClient(User):
     def __init__(self, username: str, hashed_password: bytes, balance: float = 0.0):
@@ -140,8 +164,6 @@ class FinancialPlanner(User):
             )
         )
 
-### Functions to Manage Password File
-
 def load_users_from_file(filename: str) -> dict:
     try:
         users = {}
@@ -212,17 +234,18 @@ def password_LUDS(password: str, username: str) -> bool:
 
     if not has_upper:
         print("Password must contain at least one uppercase letter.")
+        return False
     if not has_lower:
         print("Password must contain at least one lowercase letter.")
+        return False
     if not has_digit:
         print("Password must contain at least one digit.")
+        return False
     if not has_special:
         print("Password must contain at least one symbol.")
+        return False
 
-    print(f"Password validation results: UpperCase: {has_upper}, LowerCase: {has_lower}, "
-          f"Digit: {has_digit}, Special: {has_special}")
-
-    return all([has_upper, has_lower, has_digit, has_special])
+    return True
 
 def just_invest_ui(user: User):
     running = True
@@ -259,9 +282,9 @@ def just_invest_ui(user: User):
 
             actions = {
                 1: (Permissions.CLIENT_VIEW_BALANCE, lambda: print(f"\nCurrent balance: ${user.balance:.2f}\n")),
-                2: (Permissions.VIEW_CLIENT_PORTFOLIO, lambda: print("\nViewing portfolio...\n")),
-                3: (Permissions.MODIFY_CLIENT_PORTFOLIO, lambda: print("\nModifying investment portfolio...\n")),
-                4: (Permissions.VIEW_CONTACT_DETAILS_FA, lambda: print("\nViewing Financial Advisor contact details...\n")),
+                2: (Permissions.VIEW_CLIENT_PORTFOLIO, lambda: print(user.view_portfolio())),
+                3: (Permissions.MODIFY_CLIENT_PORTFOLIO, lambda: print(user.modify_portfolio())),
+                4: (Permissions.VIEW_CONTACT_DETAILS_FA, lambda: print(user.get_financial_advisor())),
                 5: (Permissions.VIEW_CONTACT_DETAILS_FP, lambda: print("\nViewing Financial Planner contact details...\n")),
                 6: (Permissions.VIEW_MONEY_MARKET_INSTRUMENTS, lambda: print("\nViewing money market instruments...\n")),
                 7: (Permissions.VIEW_PRIVATE_CONSUMER_INSTRUMENTS, lambda: print("\nViewing private consumer instruments...\n")),
@@ -297,6 +320,7 @@ def main():
             print()
 
             if choice == 0:
+                os.remove("passwd.txt")
                 break
 
             if choice == 1:
@@ -336,6 +360,8 @@ def main():
                         user = FinancialAdvisor(username, user_data['hashed_password'])
                     elif role_type == 'FinancialPlanner':
                         user = FinancialPlanner(username, user_data['hashed_password'])
+                    else:
+                        print("Invalid user type")
                     just_invest_ui(user)
                     print("Login Successful!")
                 else:
