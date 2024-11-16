@@ -215,7 +215,7 @@ def insert_user(users: dict, username: str, password: str, user_class, balance: 
 
 def password_LUDS(password: str, username: str) -> bool:
     """Validate the password meets Length, Uppercase, Digit, Symbol requirements."""
-    if not (8 <= len(password) <= 72): # Adjusted to reflect bcrypt's 72 character limit[1][2][5]
+    if not (8 <= len(password) <= 72): 
         print("Password must be between 8 and 72 characters (inclusive).")
         return False
 
