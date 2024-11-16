@@ -9,12 +9,11 @@ you may run the application via on the VM via:
 
 ## TERMINAL:
 
-```
-
 ### Running the Application 🏃
 To run the justInvest System, execute the `main.py` file (after navigating to the project directory):
 
 _On the VM for this assigment:_
+
 ```bash
 python3 main.py
 ```
@@ -23,7 +22,6 @@ python3 main.py
 You have to register as a user (it will prompt you as to which type of user you want to be) in order to be able to login, you will see a text file appear in the project directory, that is where the inforamtion is stored. Some of the information is public, some of it is private (using salt and pepper as well as hashing schemes) : The security measures are discussed in the project write up.
 
 ## Usage
-
 ### Registering a User 🔑
 1. Select the "Register" option from the main menu.
 2. Enter a username, password, user type, and balance (if applicable).
