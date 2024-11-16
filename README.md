@@ -37,6 +37,8 @@ You have to register as a user (it will prompt you as to which type of user you 
 - Financial advisors and planners can select clients to interact with and perform actions on their behalf.
 
 ## Code Structure 🔧
+### High-Level-Abstract
+![Access Control Diagram](SYSC-4810[ACD].png)
 
 ### Classes
 - `Permissions`: An enumeration of available permissions.
