@@ -1,8 +1,8 @@
-# Overview
+# Overview❗
 
 In this problem, we had to develop a regestration system where we could register as the various roles (and permissions) described in earlier versions of the justInvest system.  The users are still saved to `passwd.txt` and each role still includes all the permissions from the previous iterations of the system. That is, we are just building on previous versions. 
 
-# How To Run
+# How To Run ⚠️
 
 Running the main.py will lead you to a rudamentary UI that I used to test the system during development
 
@@ -16,4 +16,7 @@ Test suite:
 ```bash
 python3 test.py
 ```
+
+## License
+The justInvest System is released under the [MIT License](https://opensource.org/licenses/MIT).
 
