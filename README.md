@@ -1,13 +1,5 @@
 ## Overview❗
-The justInvest System is a comprehensive application designed to manage user accounts, permissions, and financial operations. This system utilizes the `bcrypt` library for secure password hashing and verification, ensuring the protection of user credentials.
-
-## Key Features 
-
-# How to Run
-
-you may run the application via on the VM via: 
-
-## TERMINAL:
+This is the final version of the justInvest system. The justInvest System is a comprehensive application designed to manage user accounts, permissions, and financial operations. The system utilizes the `bcrypt` library for secure password hashing and verification, ensuring the protection of user credentials.
 
 ### Running the Application 🏃
 To run the justInvest System, execute the `main.py` file (after navigating to the project directory):
@@ -16,6 +8,10 @@ _On the VM for this assigment:_
 
 ```bash
 python3 main.py
+```
+To run the tests 
+```bash
+python3 test.py
 ```
 
 # Note!
