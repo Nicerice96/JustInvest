@@ -1,4 +1,4 @@
-# Overview
+# Overview ❗
 
 In this problem, we focus on implementing a password file to save information about the user (passwords, username  etc.) The password file is a text file called `passwd.txt` (this should not be immidiately visible, only upon creating users should the file be made [obviously]). 
 
@@ -19,3 +19,6 @@ python3 main.py
 python3  test.py
 ```
 The above assumes that you are in the project directory (wherever the above two files are)
+
+## License
+The justInvest System is released under the [MIT License](https://opensource.org/licenses/MIT).
