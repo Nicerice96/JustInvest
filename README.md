@@ -7,11 +7,11 @@ To run the justInvest System, execute the `main.py` file (after navigating to th
 _On the VM for this assigment:_
 
 ```bash
-python3 main.py
+python main.py
 ```
 To run the tests 
 ```bash
-python3 test.py
+python test.py
 ```
 
 # Note!
@@ -59,7 +59,7 @@ You have to register as a user (it will prompt you as to which type of user you 
 ### Password Hashing
 - Passwords are hashed using `bcrypt`, which includes a salt to prevent rainbow table attacks.
 - The computation cost of hashing can be adjusted to slow down the process, making brute-force attacks more difficult.
-- **Peppering**: The system uses a pepper, a secret value that is combined with the password before hashing. This pepper is not stored in the database, providing an additional layer of security. Even if the database is compromised, the attacker will not have access to the pepper, making it harder to crack the passwords.
+- The system uses a pepper, a secret value that is combined with the password before hashing. This pepper is not stored in the database, providing an additional layer of security. Even if the database is compromised, the attacker will not have access to the pepper, making it harder to crack the passwords.
 
 ### Permission System
 - Users can only perform actions that are within their assigned permissions, ensuring that sensitive operations are restricted.
