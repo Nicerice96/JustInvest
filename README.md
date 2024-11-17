@@ -9,11 +9,11 @@ You can run either the main.py, or test.py. The main contains some basic tests. 
 On the VM, you can run either by: 
 
 ```bash
-python3 main.py
+python main.py
 ```
 
 ```bash
-python3  test.py
+python  test.py
 ```
 
 The above assumes that you are in the project directory (wherever the above two files are)
