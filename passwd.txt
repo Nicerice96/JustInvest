@@ -1,0 +1,1 @@
+test_user,$2b$12$N4cytONPWnNyUFz2JFLYTO6U5hHaRzZuNz75vJsorNaueWHlSq.42,StandardClient,1000.0,

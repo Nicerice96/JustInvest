@@ -10,11 +10,11 @@ For a more comprehensive testing of the system the test.py was added later to te
 
 This is probably not useful to you, but you can run it if you want:
 ```bash
-python3 main.py 
+python main.py 
 ```
 Test suite:
 ```bash
-python3 test.py
+python test.py
 ```
 
 ## License
