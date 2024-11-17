@@ -12,7 +12,7 @@ This is probably not useful to you, but you can run it if you want:
 ```bash
 python main.py 
 ```
-Test suite:
+The test suite demonstrates the functionality much better:
 ```bash
 python test.py
 ```
