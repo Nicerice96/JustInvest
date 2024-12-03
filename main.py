@@ -713,10 +713,11 @@ def main():
                 if authenticate(users, username, password):
                     user_data = users[username]
                     role_type = user_data['role']
+                    balance = user_data['balance']
                     if role_type == 'StandardClient':
-                        user = StandardClient(username, user_data['hashed_password'])
+                        user = StandardClient(username, user_data['hashed_password'], balance)
                     elif role_type == 'PremiumClient':
-                        user = PremiumClient(username, user_data['hashed_password'])
+                        user = PremiumClient(username, user_data['hashed_password'], balance)
                     elif role_type == 'Teller':
                         user = Teller(username, user_data['hashed_password'])
                     elif role_type == 'FinancialAdvisor':
